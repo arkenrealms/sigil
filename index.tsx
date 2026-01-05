@@ -1,3 +1,5 @@
+// sigil/index.tsx
+//
 import { h, render } from "preact";
 import InGame from "./ui/game/views/InGame";
 

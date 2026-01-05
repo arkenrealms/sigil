@@ -1,3 +1,5 @@
+// sigil/ui/game/views/InGame.tsx
+//
 import { h, render } from "preact";
 import styled from "preact/styled";
 import { ActionBar } from "../../actions/components/ActionBar";

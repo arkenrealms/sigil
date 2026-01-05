@@ -1,4 +1,5 @@
-// ActionGrid.tsx
+// sigil/ui/actions/components/ActionGrid.tsx
+//
 import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { ActionSlot } from "./ActionSlot";

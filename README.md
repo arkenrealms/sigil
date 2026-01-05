@@ -1,6 +1,6 @@
 # Arken Sigil
 
-Game UI built for the Arken Realms, using Unity.
+Game UI built for the Arken Realms, using OneJS in Unity.
 
 ## Setup
 

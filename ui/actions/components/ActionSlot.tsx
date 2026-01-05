@@ -1,3 +1,5 @@
+// sigil/ui/actions/components/ActionSlot.tsx
+//
 import { h } from "preact";
 import type { ActionDef, ActionRuntime } from "../types";
 import { clamp01 } from "../../../util";

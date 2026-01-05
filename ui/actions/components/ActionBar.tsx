@@ -1,3 +1,5 @@
+// sigil/ui/actions/components/ActionBar.tsx
+//
 import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ActionDef, ActionRuntime } from "../types";

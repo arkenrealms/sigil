@@ -1,4 +1,5 @@
-// utils.ts
+// sigil/util/index.ts
+//
 export const nowMs = () => Date.now();
 
 export function clamp01(x: number) {

@@ -1,4 +1,5 @@
-// styled.ts
+// sigil/util/styled.ts
+//
 import _styled from "preact/styled";
 import type { ComponentType } from "preact";
 
