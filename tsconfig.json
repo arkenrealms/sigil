@@ -20,7 +20,7 @@
     "sourceMap": true,
     "skipLibCheck": true
   },
-  "exclude": ["tmp", "node_modules", "@outputs"],
+  "exclude": ["tmp", "@outputs"],
   "include": [
     "ui/**/*.ts",
     "ui/**/*.tsx",
