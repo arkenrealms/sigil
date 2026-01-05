@@ -1,0 +1,118 @@
+// unity/Assets/Arken/UI/CooldownRadial.cs
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Arken.UI {
+
+    // Usage in TSX: <cooldownradial frac={0.3} color="#000000" alpha={0.55} />
+    public class CooldownRadial : VisualElement {
+
+        public new class UxmlFactory : UxmlFactory<CooldownRadial, UxmlTraits> { }
+
+        public new class UxmlTraits : VisualElement.UxmlTraits {
+            readonly UxmlFloatAttributeDescription _frac  = new() { name = "frac",  defaultValue = 0f };
+            readonly UxmlStringAttributeDescription _color = new() { name = "color", defaultValue = "#000000" };
+            readonly UxmlFloatAttributeDescription _alpha = new() { name = "alpha", defaultValue = 0.55f };
+
+            public override void Init(VisualElement ve, IUxmlAttributes bag, CreationContext cc) {
+                base.Init(ve, bag, cc);
+                var r = (CooldownRadial)ve;
+                r.Frac = Mathf.Clamp01(_frac.GetValueFromBag(bag, cc));
+                r.ColorHex = _color.GetValueFromBag(bag, cc) ?? "#000000";
+                r.Alpha = Mathf.Clamp01(_alpha.GetValueFromBag(bag, cc));
+            }
+        }
+
+        float _frac;
+        string _colorHex = "#000000";
+        float _alpha = 0.55f;
+
+        public float Frac {
+            get => _frac;
+            set { _frac = Mathf.Clamp01(value); MarkDirtyRepaint(); }
+        }
+
+        public string ColorHex {
+            get => _colorHex;
+            set { _colorHex = string.IsNullOrEmpty(value) ? "#000000" : value; MarkDirtyRepaint(); }
+        }
+
+        public float Alpha {
+            get => _alpha;
+            set { _alpha = Mathf.Clamp01(value); MarkDirtyRepaint(); }
+        }
+
+        public CooldownRadial() {
+            // Do not block clicks
+            pickingMode = PickingMode.Ignore;
+
+            // IMPORTANT: Make this element stretch regardless of OneJS CSS quirks.
+            // (This fixes the "tiny diamond in corner" layout.)
+            style.position = Position.Absolute;
+            style.left = 0;
+            style.top = 0;
+            style.right = 0;
+            style.bottom = 0;
+            style.width = Length.Percent(100);
+            style.height = Length.Percent(100);
+
+            // Repaint when size changes (first layout pass, resolution changes, etc.)
+            RegisterCallback<GeometryChangedEvent>(_ => MarkDirtyRepaint());
+
+            generateVisualContent += OnGenerate;
+        }
+
+        void OnGenerate(MeshGenerationContext mgc) {
+            // Your semantics: _frac is elapsed 0..1.
+            // We draw a dark overlay wedge for the REMAINING portion.
+            if (_frac <= 0f) return;     // if nothing elapsed, you may want full overlay; keeping your old behavior
+            if (_alpha <= 0f) return;
+
+            var rect = contentRect;
+            var w = rect.width;
+            var h = rect.height;
+
+            if (w <= 1f || h <= 1f) return;
+
+            // Center in LOCAL coordinates.
+            // In UI Toolkit, drawing coords are element-local; don't trust rect.x/y offsets.
+            float cx = w * 0.5f;
+            float cy = h * 0.5f;
+
+            // KEY FIX: radius must cover the square corners so it "fills the whole slot".
+            float radius = Mathf.Sqrt(w * w + h * h) * 0.5f;
+
+            // Parse color
+            Color baseColor = Color.black;
+            if (ColorUtility.TryParseHtmlString(_colorHex, out var parsed)) baseColor = parsed;
+            baseColor.a = _alpha;
+
+            var p = mgc.painter2D;
+            p.fillColor = baseColor;
+
+            // Angles in DEGREES for our polyline, then convert to radians per point.
+            // Start at 12 o'clock (-90deg).
+            float startDeg = -90f + 360f * _frac;
+            float endDeg   = -90f + 360f;
+
+            // If the remaining wedge is extremely small, still draw something stable.
+            float sweepDeg = Mathf.Abs(endDeg - startDeg);
+            if (sweepDeg <= 0.01f) return;
+
+            // Adaptive steps: smoother for large sweeps, fewer for tiny sweeps.
+            int steps = Mathf.Clamp(Mathf.CeilToInt(sweepDeg / 6f), 12, 96);
+
+            p.BeginPath();
+            p.MoveTo(new Vector2(cx, cy));
+
+            for (int i = 0; i <= steps; i++) {
+                float tDeg = Mathf.Lerp(startDeg, endDeg, i / (float)steps);
+                float t = tDeg * Mathf.Deg2Rad;
+                p.LineTo(new Vector2(cx + Mathf.Cos(t) * radius, cy + Mathf.Sin(t) * radius));
+            }
+
+            p.ClosePath();
+            p.Fill();
+        }
+    }
+}

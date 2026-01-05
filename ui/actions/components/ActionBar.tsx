@@ -27,7 +27,7 @@ const Row = styled.div`
 const Dots = styled.div`
   display: flex;
   flex-direction: row;
-  margin-top: 6px; /* optional: match your previous layout */
+  margin-top: 6px;
   opacity: 0.8;
 `;
 
@@ -51,12 +51,21 @@ export const ActionBar = (props: {
   onToggle?: (id: string, newState: boolean) => void;
   globalCooldownSec?: number;
   class?: string;
+
+  /**
+   * If false, ActionBar will NOT page itself.
+   * Instead, it will call onSwipePage(dir).
+   */
+  enableSwipePaging?: boolean;
+  suppressTaps?: boolean;
+  onSwipePage?: (dir: -1 | 1) => void;
 }) => {
   const actions = useMemo(() => props.actions ?? [], [props.actions]);
 
   const rtRef = useRef<Record<string, ActionRuntime>>({});
   const [tick, setTick] = useState(0);
 
+  // internal page (used only when enableSwipePaging !== false)
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(actions.length / PAGE_SIZE));
 
@@ -110,6 +119,7 @@ export const ActionBar = (props: {
     setTick(nowMs());
   }
 
+  // ----- press handling (tap vs long-press, + swipe) -----
   const pressRef = useRef<{
     id: string;
     timer: any;
@@ -174,13 +184,26 @@ export const ActionBar = (props: {
 
     pressRef.current = null;
 
-    if (moved && Math.abs(dx) >= SWIPE_PX && pageCount > 1) {
-      if (dx < 0) setPage((v) => Math.min(pageCount - 1, v + 1));
-      else setPage((v) => Math.max(0, v - 1));
-      return;
+    // Swipe paging
+    if (moved && Math.abs(dx) >= SWIPE_PX) {
+      const dir = dx < 0 ? (1 as const) : (-1 as const);
+
+      // external paging (used by swiper)
+      if (props.enableSwipePaging === false) {
+        props.onSwipePage?.(dir);
+        return;
+      }
+
+      // internal paging (original behavior)
+      if (pageCount > 1) {
+        if (dir === 1) setPage((v) => Math.min(pageCount - 1, v + 1));
+        else setPage((v) => Math.max(0, v - 1));
+        return;
+      }
     }
 
-    if (!wasLong) tryUse(a);
+    // Tap use (only if not long press)
+    if (!wasLong && !props.suppressTaps) tryUse(a);
   }
 
   function onCancel() {
@@ -191,9 +214,12 @@ export const ActionBar = (props: {
   }
 
   const pageActions = useMemo(() => {
+    // if external paging is disabled, show all actions as-is
+    if (props.enableSwipePaging === false) return actions;
+
     const start = page * PAGE_SIZE;
     return actions.slice(start, start + PAGE_SIZE);
-  }, [actions, page]);
+  }, [actions, page, props.enableSwipePaging]);
 
   return (
     <Wrap class={props.class ?? ""}>
@@ -242,7 +268,8 @@ export const ActionBar = (props: {
           })}
         </Row>
 
-        {pageCount > 1 ? (
+        {/* internal dots only when ActionBar is paging itself */}
+        {props.enableSwipePaging !== false && pageCount > 1 ? (
           <Dots>
             {Array.from({ length: pageCount }).map((_, i) => {
               const isLast = i === pageCount - 1;

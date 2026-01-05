@@ -18,9 +18,14 @@
     "jsxFragmentFactory": "Fragment",
     "typeRoots": ["./node_modules/@types"],
     "sourceMap": true,
-    "skipLibCheck": true,
-    "noImplicitAny": false,
-    "strict": false
+    "skipLibCheck": true
   },
-  "exclude": ["tmp"]
+  "exclude": ["tmp", "node_modules", "@outputs"],
+  "include": [
+    "ui/**/*.ts",
+    "ui/**/*.tsx",
+    "util/**/*.tsx",
+    "index.tsx",
+    "global.d.ts"
+  ]
 }
