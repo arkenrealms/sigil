@@ -1,0 +1,6 @@
+@outputs
+node_modules
+onejs-core
+tmp
+assets
+.DS_Store
