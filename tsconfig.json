@@ -26,6 +26,8 @@
     "ui/**/*.tsx",
     "util/**/*.tsx",
     "index.tsx",
-    "global.d.ts"
+    "global.d.ts",
+    "data/actions.ts",
+    "data/bars.ts"
   ]
 }
