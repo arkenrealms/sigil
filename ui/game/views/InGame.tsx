@@ -9,21 +9,19 @@ import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
 import { useLeaderboard } from "../state/useLeaderboard";
 import {
-  TopRightMenu,
-  TopRightMenuItem,
-  TopRightMenuSpec,
-} from "../components/TopRightMenu";
+  ActionHub,
+  ActionHubItem,
+  ActionHubSpec,
+} from "../components/ActionHub";
 import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
 
-declare const CS: any;
-
 const onUseAction = (actionId: string) =>
-  (globalThis as any).Arken.Bridge.emit("action", actionId);
+  CS.Arken.Bridge.Emit("action", JSON.stringify(actionId));
 const onUseEmote = (emoteId: string) =>
-  (globalThis as any).Arken.Bridge.emit("emote", emoteId);
+  CS.Arken.Bridge.Emit("emote", JSON.stringify(emoteId));
 
 /** Full-screen, unscaled root */
 const Wrapper = styled.div`
@@ -276,7 +274,7 @@ export default function () {
     [lb, displayTimerSec, gameInfo.rewardItemAmount, gameInfo.rewardItemName]
   );
 
-  const menuItems: TopRightMenuItem[] = useMemo(
+  const menuItems: ActionHubItem[] = useMemo(
     () => [
       { key: "Events", label: "Events", icon: "/evolution/images/events.png" },
       { key: "Chest", label: "Chest", icon: "/evolution/images/chest.png" },
@@ -304,7 +302,7 @@ export default function () {
     []
   );
 
-  const menuSpec: TopRightMenuSpec = useMemo(
+  const menuSpec: ActionHubSpec = useMemo(
     () => ({
       items: menuItems,
       mobileHandleIcon: "/evolution/images/arrow_left.png",
@@ -475,7 +473,7 @@ export default function () {
 
         <Hud spec={hudSpec} />
 
-        <TopRightMenu spec={menuSpec} onSelect={openModal} />
+        <ActionHub spec={menuSpec} onSelect={openModal} />
 
         <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
       </Scaled>

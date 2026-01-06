@@ -1,18 +1,18 @@
-// sigil/ui/game/components/TopRightMenu.tsx
+// sigil/ui/game/components/ActionHub.tsx
 import { h } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import styled from "../../../util/styled";
 import { Icon } from "../../core/components/Icon";
 import { DesktopOnly, MobileOnly } from "../../core/components/ResponsiveSlots";
 
-export type TopRightMenuItem = {
+export type ActionHubItem = {
   key: string;
   label: string;
   icon: string;
 };
 
-export type TopRightMenuSpec = {
-  items: TopRightMenuItem[];
+export type ActionHubSpec = {
+  items: ActionHubItem[];
   mobileHandleIcon: string; // e.g. "/evolution/images/arrow_left.png"
 };
 
@@ -140,8 +140,8 @@ const MobileMenuPanel = styled.div<{ $open?: boolean }>`
   padding: ${(p) => (p.$open ? "10px 12px 12px 12px" : "0px")};
 `;
 
-export function TopRightMenu(props: {
-  spec: TopRightMenuSpec;
+export function ActionHub(props: {
+  spec: ActionHubSpec;
   onSelect: (key: string) => void;
 }) {
   const { spec, onSelect } = props;
@@ -183,7 +183,7 @@ export function TopRightMenu(props: {
     setMobileOpen(false);
   }
 
-  function renderGrid(items: TopRightMenuItem[], mode: "desktop" | "mobile") {
+  function renderGrid(items: ActionHubItem[], mode: "desktop" | "mobile") {
     return (
       <MenuRow>
         {items.map((it) => {

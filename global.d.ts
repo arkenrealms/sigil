@@ -1,8 +1,33 @@
 /// <reference types="onejs-core" />
+//
+// global.d.ts
 
 export {};
 
 declare global {
+  namespace CS {
+    namespace Arken {
+      namespace Bridge {
+        function Emit(type: string, payloadJson: string): void;
+        function EmitString(type: string, payload: string): void;
+      }
+
+      namespace Evolution {
+        namespace NetworkManager {
+          const Instance: any;
+        }
+      }
+
+      namespace Web {
+        namespace WebCommunicator {
+          function EnsureOneJsAsset(remoteUrl: string, assetRel: string): void;
+          function GetOneJsFullPath(assetRel: string): string;
+          function PostJson(json: string): void;
+        }
+      }
+    }
+  }
+
   namespace JSX {
     interface IntrinsicElements {
       cooldownradial: {
@@ -11,7 +36,6 @@ declare global {
         color?: string;
         style?: any;
         class?: string;
-        // allow anything else OneJS passes through:
         [key: string]: any;
       };
     }

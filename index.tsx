@@ -56,16 +56,6 @@ document.addRuntimeUSS?.(`
 }
 `);
 
-declare const CS: any;
-
-(globalThis as any).Arken ??= {
-  Bridge: {
-    emit(type: string, payload: any) {
-      CS?.Arken?.Bridge?.Emit?.(String(type), JSON.stringify(payload));
-    },
-  },
-};
-
 const App = () => {
   return <InGame />;
 };
