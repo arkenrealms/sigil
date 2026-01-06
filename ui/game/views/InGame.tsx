@@ -33,8 +33,6 @@ const HudPos = styled.div`
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 20;
-  pointer-events: auto;
 `;
 
 const HudPanel = styled.div`
@@ -157,8 +155,6 @@ const TopRightPos = styled.div`
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 60;
-  pointer-events: auto;
 `;
 
 const MenuBox = styled.div<{ $open?: boolean }>`
@@ -181,13 +177,9 @@ const MenuRow = styled.div`
 const MenuItem = styled.div<{ $open?: boolean }>`
   width: 20%;
   align-items: center;
-  text-align: center;
+  /* OneJS/USS: text-align is not valid; use -unity-text-align */
+  -unity-text-align: middle-center;
   opacity: ${(p) => (p.$open ? "0.92" : "0.75")};
-  user-select: none;
-
-  &:hover {
-    opacity: 1;
-  }
 `;
 
 const MenuIconWrap = styled.div<{ $open?: boolean }>`
@@ -196,8 +188,7 @@ const MenuIconWrap = styled.div<{ $open?: boolean }>`
   margin-left: auto;
   margin-right: auto;
 
-  filter: ${(p) =>
-    p.$open ? "none" : "brightness(1.5) grayscale(1) sepia(1.5)"};
+  filter: ${(p) => (p.$open ? "opacity(0.5)" : "opacity(1)")};
 `;
 
 const MenuLabel = styled.div<{ $open?: boolean }>`
@@ -214,8 +205,6 @@ const SidePos = styled.div`
   position: absolute;
   top: 120px;
   right: 10px;
-  z-index: 40;
-  pointer-events: auto;
 
   display: flex;
   flex-direction: row;
@@ -253,19 +242,13 @@ const SideRail = styled.div`
 
 const RailBtn = styled.div<{ $active?: boolean }>`
   opacity: ${(p) => (p.$active ? "1" : "0.6")};
-  user-select: none;
-
-  &:hover {
-    opacity: 1;
-  }
 `;
 
 const RailIconWrap = styled.div<{ $active?: boolean }>`
   width: 58px;
   height: 58px;
 
-  filter: ${(p) =>
-    p.$active ? "none" : "brightness(1.3) grayscale(1) sepia(1.2)"};
+  filter: ${(p) => (p.$active ? "opacity(0.5)" : "opacity(1)")};
 `;
 
 const RailSpacer = styled.div`
@@ -279,9 +262,8 @@ const ModalShade = styled.div`
   left: 0px;
   right: 0px;
   bottom: 0px;
-  z-index: 200;
   background-color: rgba(0, 0, 0, 0.65);
-  pointer-events: auto;
+  /* Removed pointer-events: OneJS DomStyle doesn't implement pointerEvents */
 `;
 
 const ModalCard = styled.div`
@@ -390,7 +372,7 @@ export default function () {
         ping: "111MS",
       },
       {
-        player: "Loffarn",
+        player: "Loffarn2",
         rank: "#2",
         kills: 0,
         deaths: 0,
