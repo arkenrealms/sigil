@@ -67,24 +67,57 @@ WHEN IN DOUBT:
 
 ## Components
 
-### ActionSlot
+### ui.actions.ActionSlot
 
 <img width="42" height="44" alt="image" src="https://github.com/user-attachments/assets/7c7d9958-5bc7-42f5-93b8-0941daa23e8d" /><img width="42" height="46" alt="image" src="https://github.com/user-attachments/assets/8c558db1-bd39-4b33-b6d7-119c17dbe521" />
 
 
-### ActionBar
+### ui.actions.ActionBar
 
 <img width="171" height="65" alt="image" src="https://github.com/user-attachments/assets/7b1cf68d-a725-4011-9e78-cc7b9dd7c0d9" />
 
 
-### ActionGrid
+### ui.actions.ActionGrid
 
 <img width="216" height="222" alt="image" src="https://github.com/user-attachments/assets/0419cc4b-c939-4021-a8e7-63d15649b1a0" />
 
 
-### ActionBarSwiper
+### ui.actions.ActionBarSwiper
 
 <img width="171" height="65" alt="image" src="https://github.com/user-attachments/assets/7b1cf68d-a725-4011-9e78-cc7b9dd7c0d9" />
+
+### ui.actions.ActionHub
+
+Collapsed:
+
+<img width="678" height="140" alt="image" src="https://github.com/user-attachments/assets/4f1dfbca-2988-4a59-8b7d-0ee7b635d1aa" />
+
+Expanded:
+
+<img width="674" height="282" alt="image" src="https://github.com/user-attachments/assets/65bd35e4-b606-41af-9999-e5e06228b64e" />
+
+### ui.game.SideDock
+
+<img width="580" height="394" alt="image" src="https://github.com/user-attachments/assets/5107dc36-6985-4a0a-a469-3c08c4378766" />
+
+### ui.game.Hud
+
+
+### ui.core.Popup
+
+<img width="670" height="284" alt="image" src="https://github.com/user-attachments/assets/a6fcce4c-2838-434a-a192-fd99c96b0f06" />
+
+### ui.core.Text
+
+<img width="117" height="58" alt="image" src="https://github.com/user-attachments/assets/fd7f7f98-ec61-4ac4-bdae-bec095a84c0c" />
+
+### ui.core.Icon
+
+<img width="49" height="50" alt="image" src="https://github.com/user-attachments/assets/35dc307b-1909-42a7-9ea0-1cd55af37b15" />
+
+### ui.core.Slider
+
+<img width="274" height="38" alt="image" src="https://github.com/user-attachments/assets/13d56e74-3bbc-4ad9-997d-cecdcc920559" />
 
 
 ### Debugging
@@ -92,3 +125,4 @@ WHEN IN DOUBT:
 The most obtuse one that kept coming up is this error, which seems to be when unity finds an attribute like `filter` but fails to find the option, ie. if it has `filter: opacity(1)` which finds `opacity` but can't find `none` for `filter: none` . Their internal rendering must be so complex that in some situations it even silently fails to continue rendering.
 
 `ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.`
+
