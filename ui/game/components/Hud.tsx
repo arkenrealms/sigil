@@ -20,8 +20,7 @@ const HudPos = styled.div`
 `;
 
 const HudPanel = styled.div`
-  //   background-color: rgba(0, 0, 0, 0.55);
-  border-width: 1px;
+  border-width: 0px;
   border-color: rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   padding: 10px;

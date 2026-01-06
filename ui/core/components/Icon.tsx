@@ -1,7 +1,7 @@
 // sigil/ui/core/components/Icon.tsx
 //
 import { h } from "preact";
-import styled from "preact/styled";
+import styled from "../../../util/styled";
 import { useEffect, useState } from "preact/hooks";
 
 declare const CS: any;

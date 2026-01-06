@@ -39,8 +39,7 @@ const Content = styled.div`
   padding: 14px 14px;
   margin-right: 14px;
 
-  //   background-color: rgba(0, 0, 0, 0.55);
-  border-width: 1px;
+  border-width: 0px;
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 12px;
 `;
@@ -48,8 +47,7 @@ const Content = styled.div`
 /* Rail */
 const Rail = styled.div`
   padding: 10px 12px;
-  //   background-color: rgba(0, 0, 0, 0.35);
-  border-width: 1px;
+  border-width: 0px;
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 12px;
 
@@ -181,7 +179,7 @@ export function SideDock(props: {
               onPointerDown={() => handleSelectTab(t.key)}
             >
               <RailIconWrap>
-                <Icon src={t.icon} />
+                <Icon src={t.icon} shadow width={60} height={60} />
               </RailIconWrap>
             </RailBtn>
             {idx !== tabs.length - 1 ? <RailSpacer /> : null}
@@ -213,7 +211,7 @@ export function SideDock(props: {
 
           <MobileHandle onPointerDown={() => setMobileOpen((v) => !v)}>
             <HandleIconWrap>
-              <Icon src={spec.mobileHandleIcon} />
+              <Icon src={spec.mobileHandleIcon} shadow width={60} height={60} />
             </HandleIconWrap>
           </MobileHandle>
         </MobilePos>

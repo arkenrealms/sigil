@@ -1,7 +1,7 @@
 // sigil/ui/core/components/Text.tsx
 //
 import { h } from "preact";
-import styled from "preact/styled";
+import styled from "../../../util/styled";
 
 type TextAlign = "left" | "center" | "right";
 
@@ -56,7 +56,6 @@ export function Text(props: {
   shadowBlur?: number; // px (best-effort)
 
   // misc
-  className?: string;
   style?: any;
 }) {
   const {
@@ -69,10 +68,9 @@ export function Text(props: {
     shadow = false,
     shadowDx = 2,
     shadowDy = 2,
-    shadowOpacity = 0.6,
+    shadowOpacity = 0.8,
     shadowBlur = 1,
 
-    className,
     style,
   } = props;
 
@@ -85,7 +83,7 @@ export function Text(props: {
   };
 
   return (
-    <Wrap className={className}>
+    <Wrap>
       {shadow ? (
         <ShadowLayer
           $dx={shadowDx}

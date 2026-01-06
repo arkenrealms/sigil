@@ -41,9 +41,6 @@ const Line = styled.div<{ $last?: boolean }>`
 `;
 
 const SideTitle = styled.div`
-  font-size: 14px;
-  -unity-font-style: bold;
-  color: rgb(214, 200, 78);
   margin-bottom: 10px;
 `;
 
@@ -416,7 +413,11 @@ export default function () {
     // game tab
     return (
       <div>
-        <SideTitle>GAME MODE</SideTitle>
+        <SideTitle>
+          <Text shadow size={18} color="#fff">
+            GAME MODE
+          </Text>
+        </SideTitle>
 
         {!gameInfo?.gameMode ? (
           <Lines>
@@ -445,7 +446,7 @@ export default function () {
         {
           // NOTE: UITK doesn't support transform: scale; keep only transformOrigin
           // If you still want zoom, use `scale:` property elsewhere like you did for icons.
-          transform: `scale(${scale})`,
+          scale: scale,
           transformOrigin: "0px 0px",
           width: `${inv * 100}%`,
           height: `${inv * 100}%`,
@@ -485,7 +486,7 @@ export default function () {
             </ModalHeader>
 
             <ModalBody>
-              {modal === "Settings" ? (
+              {modal === "Market" ? (
                 <SettingsPanel />
               ) : (
                 <Lines>
