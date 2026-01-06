@@ -25,10 +25,28 @@ const onUseAction = (actionId: string) =>
 const onUseEmote = (emoteId: string) =>
   (globalThis as any).Arken.Bridge.emit("emote", emoteId);
 
+/** Full-screen, unscaled root */
 const Wrapper = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+`;
+
+/** Everything inside here is zoomed */
+const Scaled = styled.div<{
+  $scale: number;
+}>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+
+  /* UI Toolkit: scale is a property */
+  scale: ${(p) => p.$scale} ${(p) => p.$scale};
+  transform-origin: 0px 0px;
+
+  /* keep content filling the visible area after scaling */
+  width: ${(p) => `${(1 / p.$scale) * 100}%`};
+  height: ${(p) => `${(1 / p.$scale) * 100}%`};
 `;
 
 const Lines = styled.div`
@@ -44,19 +62,21 @@ const SideTitle = styled.div`
   margin-bottom: 10px;
 `;
 
-/** Kept for non-Text legacy usage (party/quest headings etc.) */
+/** Kept for non-Text legacy usage */
 const Emph = styled.div`
   display: inline;
   color: rgb(214, 200, 78);
   -unity-font-style: bold;
 `;
 
+/** IMPORTANT: ModalShade is now relative to the full-screen Wrapper, NOT scaled */
 const ModalShade = styled.div`
-  position: absolute;
-  top: 0px;
+  position: absolute; /* could be fixed if your UITK supports it */
   left: 0px;
-  right: 0px;
-  bottom: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
   background-color: rgba(0, 0, 0, 0.65);
 `;
 
@@ -186,7 +206,6 @@ export default function () {
   const zoom = clamp(zoomRaw, 50, 150);
 
   const scale = zoom / 100;
-  const inv = 1 / scale;
 
   const lb = useLeaderboard();
 
@@ -230,7 +249,6 @@ export default function () {
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
   useEffect(() => {
-    // Whenever server updates timer, snap display timer
     setDisplayTimerSec(serverTimerSec);
   }, [serverTimerSec]);
 
@@ -341,7 +359,7 @@ export default function () {
         { key: "party", icon: "/evolution/images/party.png" },
         { key: "game", icon: "/evolution/images/target.png" },
       ],
-      initialTabKey: "party",
+      initialTabKey: "game",
       mobileHandleIcon: "/evolution/images/arrow_left.png",
       mobilePanelWidthPx: 420,
     }),
@@ -410,7 +428,6 @@ export default function () {
       );
     }
 
-    // game tab
     return (
       <div>
         <SideTitle>
@@ -441,36 +458,29 @@ export default function () {
   }
 
   return (
-    <Wrapper
-      style={
-        {
-          // NOTE: UITK doesn't support transform: scale; keep only transformOrigin
-          // If you still want zoom, use `scale:` property elsewhere like you did for icons.
-          scale: scale,
-          transformOrigin: "0px 0px",
-          width: `${inv * 100}%`,
-          height: `${inv * 100}%`,
-        } as any
-      }
-    >
-      <BarPos>
-        <ActionBarSwiper
-          onUse={onUseAction}
-          globalCooldownSec={1}
-          bars={bars}
-        />
-      </BarPos>
+    <Wrapper>
+      {/* ✅ Everything here is zoomed */}
+      <Scaled $scale={scale}>
+        <BarPos>
+          <ActionBarSwiper
+            onUse={onUseAction}
+            globalCooldownSec={1}
+            bars={bars}
+          />
+        </BarPos>
 
-      <GridPos>
-        <ActionGrid actions={actions} onUse={onUseEmote} />
-      </GridPos>
+        <GridPos>
+          <ActionGrid actions={actions} onUse={onUseEmote} />
+        </GridPos>
 
-      <Hud spec={hudSpec} />
+        <Hud spec={hudSpec} />
 
-      <TopRightMenu spec={menuSpec} onSelect={openModal} />
+        <TopRightMenu spec={menuSpec} onSelect={openModal} />
 
-      <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
+        <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
+      </Scaled>
 
+      {/* ✅ Modal is NOT scaled, so it always covers the full screen */}
       {modal ? (
         <ModalShade onPointerDown={() => setModal(null)}>
           <ModalCard
