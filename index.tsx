@@ -37,6 +37,23 @@ document.addRuntimeUSS?.(`
   .root.onejs-bp-xxl .rsp-desktop {
     display: flex;
   }
+
+
+.ui-zoom-slider {
+  width: 260px;
+  height: 18px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+/* A simple reset "button" */
+.ui-zoom-reset {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  -unity-font-style: bold;
+}
 `);
 
 declare const CS: any;

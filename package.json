@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "css-flatten": "^2.0.0",
     "css-simple-parser": "^3.0.0",
+    "onejs-comps": "^0.0.14",
     "onejs-core": "~3.0.0",
     "onejs-preact": "^2.0.0",
     "tailwind-merge": "^2.6.0"

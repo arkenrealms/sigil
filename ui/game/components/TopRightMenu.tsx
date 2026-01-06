@@ -1,6 +1,6 @@
 // sigil/ui/game/components/TopRightMenu.tsx
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import styled from "../../../util/styled";
 import { Icon } from "../../core/components/Icon";
 import { DesktopOnly, MobileOnly } from "../../core/components/ResponsiveSlots";
@@ -18,18 +18,27 @@ export type TopRightMenuSpec = {
 
 const TopRightPos = styled.div`
   position: absolute;
-  top: 10px;
+  top: -2px;
   right: 10px;
 `;
 
-/* Menu panel */
+/**
+ * Desktop collapsed container: intentionally NO background/border,
+ * so it looks like the old "first row only" strip.
+ */
+const CollapsedBar = styled.div`
+  width: 520px;
+  padding: 20px 20px 20px 20px;
+`;
+
+/* Menu panel (expanded / mobile drawer contents) */
 const MenuBox = styled.div`
   width: 520px;
-  padding: 10px 12px 12px 12px;
+  padding: 20px 20px 20px 20px;
 
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: #1c1c2e;
   border-width: 2px;
-  border-color: rgb(214, 200, 78);
+  border-color: #666;
   border-radius: 0px 0px 12px 12px;
 `;
 
@@ -37,12 +46,18 @@ const MenuRow = styled.div`
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
+  margin-bottom: -20px;
 `;
 
 const MenuItem = styled.div`
   width: 20%;
   -unity-text-align: middle-center;
-  opacity: 0.92;
+  opacity: 1;
+  margin-bottom: 20px;
+
+  &:hover {
+    filter: grayscale(1) sepia(1.5);
+  }
 `;
 
 const MenuIconWrap = styled.div`
@@ -50,6 +65,49 @@ const MenuIconWrap = styled.div`
   height: 56px;
   margin-left: auto;
   margin-right: auto;
+
+  position: relative;
+`;
+
+const IconLayer = styled.div<{
+  $dx?: number;
+  $dy?: number;
+  $scale?: number;
+  $opacity?: number;
+}>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
+  opacity: ${(p) => p.$opacity ?? 1};
+  translate: ${(p) => `${p.$dx ?? 0}px ${p.$dy ?? 0}px`};
+
+  /* ✅ UI Toolkit: scale is its own property, not transform */
+  scale: ${(p) => p.$scale ?? 1} ${(p) => p.$scale ?? 1};
+  transform-origin: 50% 50%;
+`;
+
+const ShadowLayer = styled.div<{
+  $dx?: number;
+  $dy?: number;
+  $scale?: number;
+  $opacity?: number;
+}>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
+  opacity: ${(p) => p.$opacity ?? 1};
+  translate: ${(p) => `${p.$dx ?? 0}px ${p.$dy ?? 0}px`};
+
+  /* ✅ UI Toolkit: scale is its own property, not transform */
+  scale: ${(p) => p.$scale ?? 1} ${(p) => p.$scale ?? 1};
+  transform-origin: 50% 50%;
+  filter: blur(2px) grayscale(1) tint(#000);
 `;
 
 const MenuLabel = styled.div`
@@ -110,24 +168,64 @@ export function TopRightMenu(props: {
 }) {
   const { spec, onSelect } = props;
 
+  const [desktopExpanded, setDesktopExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  function select(key: string) {
+  const settingsKey = "Settings";
+
+  // Desktop: first row only when collapsed, full list when expanded.
+  // Desktop: show 4 items + Settings when collapsed; full list when expanded.
+  const desktopItems = useMemo(() => {
+    if (desktopExpanded) return spec.items;
+
+    // Take first 4 *non-settings* items, then Settings as slot 5.
+    const firstFive = spec.items
+      //   .filter((x) => x.key !== settingsKey)
+      .slice(0, 5);
+    return firstFive;
+  }, [spec.items, desktopExpanded]);
+
+  function onItemPress(key: string) {
+    // Special behavior: Settings toggles expanded/collapsed (desktop)
+    if (key === settingsKey) {
+      setDesktopExpanded((v) => !v);
+
+      // Mobile: keep your existing behavior where Settings just closes the drawer.
+      // (If you want Settings to open your Settings modal on mobile, change this.)
+      if (mobileOpen) setMobileOpen(false);
+
+      return;
+    }
+
+    // Normal menu item opens modal
     onSelect(key);
+
+    // Collapse after selection
+    setDesktopExpanded(false);
     setMobileOpen(false);
   }
 
-  function renderMenuGrid() {
+  function renderGrid(items: TopRightMenuItem[], mode: "desktop" | "mobile") {
     return (
       <MenuRow>
-        {spec.items.map((it) => (
-          <MenuItem onPointerDown={() => select(it.key)}>
-            <MenuIconWrap>
-              <Icon src={it.icon} />
-            </MenuIconWrap>
-            <MenuLabel>{it.label}</MenuLabel>
-          </MenuItem>
-        ))}
+        {items.map((it) => {
+          const isSettings = it.key === settingsKey;
+
+          // When expanded, turn "Settings" into "Close" (desktop only)
+          const label =
+            mode === "desktop" && desktopExpanded && isSettings
+              ? "Close"
+              : it.label;
+
+          return (
+            <MenuItem onPointerDown={() => onItemPress(it.key)}>
+              <MenuIconWrap>
+                <Icon src={it.icon} shadow />
+              </MenuIconWrap>
+              {desktopExpanded ? <MenuLabel>{label}</MenuLabel> : null}
+            </MenuItem>
+          );
+        })}
       </MenuRow>
     );
   }
@@ -135,13 +233,17 @@ export function TopRightMenu(props: {
   return (
     <TopRightPos>
       <DesktopOnly>
-        <MenuBox>{renderMenuGrid()}</MenuBox>
+        {desktopExpanded ? (
+          <MenuBox>{renderGrid(desktopItems, "desktop")}</MenuBox>
+        ) : (
+          <CollapsedBar>{renderGrid(desktopItems, "desktop")}</CollapsedBar>
+        )}
       </DesktopOnly>
 
       <MobileOnly>
         <MobileMenuPos>
           <MobileMenuPanel $open={mobileOpen}>
-            <MenuBox>{renderMenuGrid()}</MenuBox>
+            <MenuBox>{renderGrid(spec.items, "mobile")}</MenuBox>
           </MobileMenuPanel>
 
           <MobileMenuHandle onPointerDown={() => setMobileOpen((v) => !v)}>

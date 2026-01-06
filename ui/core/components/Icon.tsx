@@ -41,23 +41,81 @@ async function ensureCached(remoteUrl: string, assetRel: string) {
   throw new Error(`Timed out caching: ${remoteUrl} -> ${assetRel}`);
 }
 
-const Root = styled.div`
+const Wrap = styled.div`
   width: 100%;
   height: 100%;
+  position: relative;
+`;
+
+const Layer = styled.div`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
   background-size: cover;
   background-position: center;
-` as any;
+`;
 
-export function Icon(props: { src?: string }) {
+// Shadow layer: uses UI Toolkit supported transform props
+const ShadowLayer = styled.div<{
+  $dx: number;
+  $dy: number;
+  $scale: number;
+  $opacity: number;
+}>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
+  background-size: cover;
+  background-position: center;
+
+  opacity: ${(p) => p.$opacity};
+  translate: ${(p) => `${p.$dx}px ${p.$dy}px`};
+  scale: ${(p) => p.$scale} ${(p) => p.$scale};
+  transform-origin: 50% 50%;
+
+  /* these are "best effort" — if your USS/UITK parser supports them, great */
+  filter: blur(2px) grayscale(1) tint(#000);
+`;
+
+export function Icon(props: {
+  src?: string;
+
+  /** If true, render a duplicated dark "shadow" under the icon */
+  shadow?: boolean;
+
+  /** Optional tuning (only used when shadow=true) */
+  shadowDx?: number; // px
+  shadowDy?: number; // px
+  shadowScale?: number; // 1.0 = same size
+  shadowOpacity?: number; // 0..1
+}) {
+  const {
+    src,
+    shadow = false,
+    shadowDx = 2,
+    shadowDy = 2,
+    shadowScale = 1.1,
+    shadowOpacity = 0.6,
+  } = props;
+
   const [bg, setBg] = useState<any>(null);
 
   useEffect(() => {
     let alive = true;
 
     (async () => {
-      if (!props.src) return;
+      if (!src) {
+        if (alive) setBg(null);
+        return;
+      }
 
-      const remoteUrl = resolveRemoteUrl(props.src);
+      const remoteUrl = resolveRemoteUrl(src);
       const assetRel = toAssetRelPath(remoteUrl);
 
       await ensureCached(remoteUrl, assetRel);
@@ -65,13 +123,29 @@ export function Icon(props: { src?: string }) {
       const tex = resource.loadImage(assetRel);
       if (alive) setBg(tex);
     })().catch((e: any) => {
-      console.log("[Icon] failed:", props.src, e?.message || e);
+      console.log("[Icon] failed:", src, e?.message || e);
     });
 
     return () => {
       alive = false;
     };
-  }, [props.src]);
+  }, [src]);
 
-  return <Root style={bg ? { backgroundImage: bg } : undefined} />;
+  const style = bg ? { backgroundImage: bg } : undefined;
+
+  return (
+    <Wrap>
+      {shadow ? (
+        <ShadowLayer
+          $dx={shadowDx}
+          $dy={shadowDy}
+          $scale={shadowScale}
+          $opacity={shadowOpacity}
+          style={style}
+        />
+      ) : null}
+
+      <Layer style={style} />
+    </Wrap>
+  );
 }

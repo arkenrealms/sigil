@@ -25,7 +25,7 @@ export type SideDockSpec = {
 
 const Pos = styled.div`
   position: absolute;
-  top: 120px;
+  top: 200px;
   right: 10px;
 
   display: flex;
@@ -39,7 +39,7 @@ const Content = styled.div`
   padding: 14px 14px;
   margin-right: 14px;
 
-  background-color: rgba(0, 0, 0, 0.55);
+  //   background-color: rgba(0, 0, 0, 0.55);
   border-width: 1px;
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 12px;
@@ -48,7 +48,7 @@ const Content = styled.div`
 /* Rail */
 const Rail = styled.div`
   padding: 10px 12px;
-  background-color: rgba(0, 0, 0, 0.35);
+  //   background-color: rgba(0, 0, 0, 0.35);
   border-width: 1px;
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 12px;
@@ -58,7 +58,7 @@ const Rail = styled.div`
 `;
 
 const RailBtn = styled.div<{ $active?: boolean }>`
-  opacity: ${(p) => (p.$active ? "1" : "0.6")};
+  opacity: ${(p) => (p.$active ? "1" : "0.8")};
 `;
 
 const RailIconWrap = styled.div`

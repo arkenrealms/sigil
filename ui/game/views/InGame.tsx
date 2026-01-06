@@ -1,18 +1,23 @@
 // sigil/ui/game/views/InGame.tsx
 import { h } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import styled from "../../../util/styled";
 import { ActionBarSwiper } from "../../actions/components/ActionBarSwiper";
 import { ActionGrid } from "../../actions/components/ActionGrid";
 import actions from "../../../data/actions";
 import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
+import { useLeaderboard } from "../state/useLeaderboard";
 import {
   TopRightMenu,
   TopRightMenuItem,
   TopRightMenuSpec,
 } from "../components/TopRightMenu";
 import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
+import { SettingsPanel } from "../components/SettingsPanel";
+import { useUiZoomPercent } from "../state/useUiZoom";
+
+declare const CS: any;
 
 const onUseAction = (actionId: string) =>
   (globalThis as any).Arken.Bridge.emit("action", actionId);
@@ -25,16 +30,16 @@ const Wrapper = styled.div`
   height: 100%;
 `;
 
-/* --- shared --- */
 const Lines = styled.div`
   white-space: pre-line;
 `;
 
 const Line = styled.div<{ $last?: boolean }>`
   margin-bottom: ${(p) => (p.$last ? "0px" : "4px")};
+  font-size: 18px;
+  color: #fff;
 `;
 
-/* local title styles used inside side content */
 const SideTitle = styled.div`
   font-size: 14px;
   -unity-font-style: bold;
@@ -42,7 +47,13 @@ const SideTitle = styled.div`
   margin-bottom: 10px;
 `;
 
-/* --- SIMPLE MODAL (dummy) --- */
+/** USS bold belongs in styled components (not inline style objects) */
+const Emph = styled.div`
+  display: inline;
+  color: rgb(214, 200, 78);
+  -unity-font-style: bold;
+`;
+
 const ModalShade = styled.div`
   position: absolute;
   top: 0px;
@@ -93,21 +104,23 @@ const ModalBody = styled.div`
   font-size: 13px;
 `;
 
-/* --- BOTTOM UI POSITIONS --- */
 const BarPos = styled.div`
   position: absolute;
-  bottom: 80px;
+  bottom: 5px;
   left: 50%;
   translate: -50% 0;
 `;
 
 const GridPos = styled.div`
   position: absolute;
-  bottom: 80px;
-  right: 16px;
+  bottom: 30px;
+  right: 30px;
 `;
 
-/* --- local types for mock data --- */
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
 type ModalKey =
   | null
   | "Events"
@@ -121,39 +134,131 @@ type ModalKey =
   | "Leaderboard"
   | "Settings";
 
+/** Minimal game info we actually show in the side dock. */
+type GameInfo = {
+  timerSec?: number;
+  rewardWinnerAmount?: string;
+  rewardWinnerName?: string;
+  rewardItemAmount?: string;
+  rewardItemName?: string;
+  gameMode?: string;
+};
+
+/** Adjust this if your binding is different */
+function getNetworkManagerInstance(): any {
+  return CS?.Arken?.Evolution?.NetworkManager?.Instance ?? null;
+}
+
+function parseRoundInfo(payload: string): GameInfo {
+  const parts = (payload ?? "").split(":");
+  if (parts.length < 10) return {};
+
+  const timer = parts[0];
+
+  // Based on your destructure indices from the old web UI.
+  const gameMode = parts[22];
+  const rewardItemAmount = parts[45];
+  const rewardItemName = parts[46];
+  const rewardWinnerAmount = parts[48];
+  const rewardWinnerName = parts[49];
+
+  const timerSec = Number(timer);
+  return {
+    timerSec: Number.isFinite(timerSec) ? timerSec : undefined,
+    gameMode,
+    rewardItemAmount,
+    rewardItemName,
+    rewardWinnerAmount,
+    rewardWinnerName,
+  };
+}
+
+function formatMMSS(totalSec?: number) {
+  if (!Number.isFinite(totalSec as any)) return "00:00";
+  const s0 = Math.max(0, Math.floor(totalSec as number));
+  const m = Math.floor(s0 / 60);
+  const s = s0 % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
 
+  // constrain zoom to 50%..150% no matter what storage returns
+  const zoomRaw = useUiZoomPercent();
+  const zoom = clamp(zoomRaw, 50, 150);
+
+  const scale = zoom / 100;
+  const inv = 1 / scale;
+
+  const lb = useLeaderboard();
+
+  // Game info driven by C# event
+  const [gameInfo, setGameInfo] = useState<GameInfo>({});
+  const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
+
+  useEffect(() => {
+    const nm = getNetworkManagerInstance();
+    if (!nm) {
+      console.log(
+        "[OneJS] NetworkManager.Instance not found; round info not bound."
+      );
+      return;
+    }
+
+    const onRoundInfo = (payload: string) => {
+      const info = parseRoundInfo(payload);
+
+      setGameInfo((prev) => ({ ...prev, ...info }));
+
+      if (typeof info.timerSec === "number") {
+        setServerTimerSec(info.timerSec); // authoritative reset
+      }
+    };
+
+    // exact same subscription style as leaderboard
+    if (typeof nm.add_OnSetRoundInfo === "function") {
+      nm.add_OnSetRoundInfo(onRoundInfo);
+      return () => {
+        nm.remove_OnSetRoundInfo?.(onRoundInfo);
+      };
+    }
+
+    console.log(
+      "[OneJS] Warning: add_OnSetRoundInfo missing; round info event not bound."
+    );
+    return;
+  }, []);
+
+  const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Whenever server updates timer, snap display timer
+    setDisplayTimerSec(serverTimerSec);
+  }, [serverTimerSec]);
+
+  useEffect(() => {
+    if (displayTimerSec == null) return;
+
+    const id = setInterval(() => {
+      setDisplayTimerSec((prev) => {
+        if (prev == null) return prev;
+        return prev > 0 ? prev - 1 : 0;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [displayTimerSec != null]);
+
   const hudSpec: HudSpec = useMemo(
     () => ({
-      timeLeftText: "0:54",
-      rewardText: "0.001 ZOD",
-      rows: [
-        {
-          player: "Zoey",
-          rank: "#1",
-          kills: 1,
-          deaths: 0,
-          evolves: 391,
-          items: 0,
-          sprites: 806,
-          points: 10811,
-          ping: "111MS",
-        },
-        {
-          player: "Loffarn2",
-          rank: "#2",
-          kills: 0,
-          deaths: 0,
-          evolves: 222,
-          items: 0,
-          sprites: 222,
-          points: 10111,
-          ping: "190MS",
-        },
-      ],
+      timeLeftText: formatMMSS(displayTimerSec ?? undefined),
+      rewardText: `${gameInfo.rewardItemAmount || "—"} ${
+        gameInfo.rewardItemName || ""
+      }`.trim(),
+      rows: lb,
     }),
-    []
+    [lb, displayTimerSec, gameInfo.rewardItemAmount, gameInfo.rewardItemName]
   );
 
   const menuItems: TopRightMenuItem[] = useMemo(
@@ -166,6 +271,11 @@ export default function () {
         icon: "/evolution/images/inventory.png",
       },
       { key: "Market", label: "Market", icon: "/evolution/images/market.png" },
+      {
+        key: "Settings",
+        label: "Settings",
+        icon: "/evolution/images/settings.png",
+      },
       { key: "Craft", label: "Craft", icon: "/evolution/images/craft.png" },
       { key: "Guild", label: "Guild", icon: "/evolution/images/guild.png" },
       { key: "Party", label: "Party", icon: "/evolution/images/party.png" },
@@ -174,11 +284,6 @@ export default function () {
         key: "Leaderboard",
         label: "Leaderboard",
         icon: "/evolution/images/leaderboard.png",
-      },
-      {
-        key: "Settings",
-        label: "Settings",
-        icon: "/evolution/images/settings.png",
       },
     ],
     []
@@ -228,14 +333,6 @@ export default function () {
     []
   );
 
-  const targets = useMemo(
-    () => [
-      { name: "Enemy#5521", threat: "High", lastSeen: "Mid lane" },
-      { name: "Enemy#1932", threat: "Med", lastSeen: "Top lane" },
-    ],
-    []
-  );
-
   function openModal(k: string) {
     setModal(k as ModalKey);
   }
@@ -245,7 +342,7 @@ export default function () {
       tabs: [
         { key: "quest", icon: "/evolution/images/quest.png" },
         { key: "party", icon: "/evolution/images/party.png" },
-        { key: "target", icon: "/evolution/images/target.png" },
+        { key: "game", icon: "/evolution/images/target.png" },
       ],
       initialTabKey: "party",
       mobileHandleIcon: "/evolution/images/arrow_left.png",
@@ -267,17 +364,7 @@ export default function () {
             >
               <Lines>
                 <Line>
-                  <div
-                    style={
-                      {
-                        color: "rgb(214, 200, 78)",
-                        "-unity-font-style": "bold",
-                      } as any
-                    }
-                  >
-                    {m.name}
-                  </div>{" "}
-                  (Lv {m.level})
+                  <Emph>{m.name}</Emph> (Lv {m.level})
                 </Line>
                 <Line>Power: {m.power}</Line>
                 <Line $last={true}>
@@ -302,16 +389,7 @@ export default function () {
             >
               <Lines>
                 <Line>
-                  <div
-                    style={
-                      {
-                        color: "rgb(214, 200, 78)",
-                        "-unity-font-style": "bold",
-                      } as any
-                    }
-                  >
-                    {q.title}
-                  </div>
+                  <Emph>{q.title}</Emph>
                 </Line>
                 <Line $last={true}>Progress: {q.progress}</Line>
               </Lines>
@@ -321,41 +399,35 @@ export default function () {
       );
     }
 
-    // targets
+    // game tab
     return (
       <div>
-        <SideTitle>TARGETS</SideTitle>
-        {targets.map((t, idx) => (
-          <div
-            style={{
-              marginBottom: idx === targets.length - 1 ? "0px" : "10px",
-            }}
-          >
-            <Lines>
-              <Line>
-                <div
-                  style={
-                    {
-                      color: "rgb(214, 200, 78)",
-                      "-unity-font-style": "bold",
-                    } as any
-                  }
-                >
-                  {t.name}
-                </div>
-              </Line>
-              <Line>Threat: {t.threat}</Line>
-              <Line $last={true}>Last seen: {t.lastSeen}</Line>
-            </Lines>
-          </div>
-        ))}
+        <SideTitle>GAME MODE</SideTitle>
+
+        {!gameInfo?.gameMode ? (
+          <Lines>
+            <Line>Loading...</Line>
+          </Lines>
+        ) : (
+          <Lines>
+            <Line>{gameInfo.gameMode.toUpperCase()}</Line>
+          </Lines>
+        )}
       </div>
     );
   }
 
   return (
-    <Wrapper>
-      {/* BOTTOM CENTER: Action bar swiper */}
+    <Wrapper
+      style={
+        {
+          transform: `scale(${scale})`,
+          transformOrigin: "0px 0px",
+          width: `${inv * 100}%`,
+          height: `${inv * 100}%`,
+        } as any
+      }
+    >
       <BarPos>
         <ActionBarSwiper
           onUse={onUseAction}
@@ -364,21 +436,16 @@ export default function () {
         />
       </BarPos>
 
-      {/* BOTTOM RIGHT: emote grid */}
       <GridPos>
         <ActionGrid actions={actions} onUse={onUseEmote} />
       </GridPos>
 
-      {/* TOP LEFT HUD */}
       <Hud spec={hudSpec} />
 
-      {/* TOP RIGHT MENU */}
       <TopRightMenu spec={menuSpec} onSelect={openModal} />
 
-      {/* RIGHT SIDE DOCK (responsive) */}
       <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
 
-      {/* DUMMY MODAL */}
       {modal ? (
         <ModalShade onPointerDown={() => setModal(null)}>
           <ModalCard
@@ -394,13 +461,17 @@ export default function () {
             </ModalHeader>
 
             <ModalBody>
-              <Lines>
-                <Line>Dummy content for {modal}.</Line>
-                <Line $last={true}>
-                  Later: wire this to your real views (Market, Inventory,
-                  Settings, etc).
-                </Line>
-              </Lines>
+              {modal === "Settings" ? (
+                <SettingsPanel />
+              ) : (
+                <Lines>
+                  <Line>Dummy content for {modal}.</Line>
+                  <Line $last={true}>
+                    Later: wire this to your real views (Market, Inventory,
+                    Settings, etc).
+                  </Line>
+                </Lines>
+              )}
             </ModalBody>
           </ModalCard>
         </ModalShade>

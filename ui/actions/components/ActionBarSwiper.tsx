@@ -9,9 +9,9 @@ import { ActionBar } from "./ActionBar";
 const DRAG_START_PX = 10;
 const SWIPE_COMMIT_PX = 40;
 
-const Root = styled.div`
+const Wrapper = styled.div`
   position: relative;
-  padding: 10px 12px 0px 12px;
+  padding: 5px 12px 0px 12px;
 `;
 
 const Dots = styled.div`
@@ -19,7 +19,7 @@ const Dots = styled.div`
   flex-direction: row;
   justify-content: center;
 
-  margin-top: 10px;
+  margin-top: 5px;
   padding-top: 0px;
 
   opacity: 0.95;
@@ -111,7 +111,7 @@ export function ActionBarSwiper(props: {
   const actions = bars[Math.min(page, pageCount - 1)] ?? [];
 
   return (
-    <Root
+    <Wrapper
       onPointerDown={onDown as any}
       onPointerMove={onMove as any}
       onPointerUp={finishDrag as any}
@@ -141,6 +141,6 @@ export function ActionBarSwiper(props: {
           ))}
         </Dots>
       ) : null}
-    </Root>
+    </Wrapper>
   );
 }

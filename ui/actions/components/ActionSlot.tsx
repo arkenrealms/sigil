@@ -152,7 +152,6 @@ export const ActionSlot = (props: {
             bottom: "0px",
             width: "100%",
             height: "100%",
-            pointerEvents: "none",
           }}
           frac={g as any}
           color="#000000"
@@ -170,7 +169,6 @@ export const ActionSlot = (props: {
             bottom: "0px",
             width: "100%",
             height: "100%",
-            pointerEvents: "none",
           }}
           frac={l as any}
           color="#000000"
