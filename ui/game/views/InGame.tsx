@@ -5,6 +5,7 @@ import styled from "../../../util/styled";
 import { ActionBarSwiper } from "../../actions/components/ActionBarSwiper";
 import { ActionGrid } from "../../actions/components/ActionGrid";
 import { Icon } from "../../core/components/Icon";
+import { DesktopOnly, MobileOnly } from "../../core/components/ResponsiveSlots";
 import actions from "./InGame/actions";
 import bars from "./InGame/bars";
 
@@ -100,7 +101,7 @@ const BoardClick = styled.div`
   background-color: rgba(0, 0, 0, 0.25);
 `;
 
-/* Header + rows share this "table" layout using flex + fixed widths */
+/* table layout */
 const Row = styled.div`
   display: flex;
   flex-direction: row;
@@ -113,7 +114,6 @@ const HeaderCell = styled.div`
   color: rgba(255, 255, 255, 0.7);
 `;
 
-/* Use explicit widths; avoid grid/gap */
 const CellPlayer = styled.div`
   width: 140px;
 `;
@@ -135,7 +135,9 @@ const BodyCell = styled.div`
   color: rgba(255, 255, 255, 0.92);
 `;
 
-const BodyCellGold = styled(BodyCell)`
+/* Avoid "extending styled element" issues: define separately */
+const BodyCellGold = styled.div`
+  font-size: 12px;
   color: rgb(214, 200, 78);
   -unity-font-style: bold;
 `;
@@ -150,21 +152,20 @@ const Hint = styled.div`
   color: rgba(255, 255, 255, 0.55);
 `;
 
-/* --- TOP RIGHT MENU (NO GRID, NO GAP) --- */
+/* --- TOP RIGHT MENU (DESKTOP) --- */
 const TopRightPos = styled.div`
   position: absolute;
   top: 10px;
   right: 10px;
 `;
 
-const MenuBox = styled.div<{ $open?: boolean }>`
+const MenuBox = styled.div`
   width: 520px;
   padding: 10px 12px 12px 12px;
 
-  background-color: ${(p) =>
-    p.$open ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.0)"};
+  background-color: rgba(0, 0, 0, 0.75);
   border-width: 2px;
-  border-color: ${(p) => (p.$open ? "rgb(214, 200, 78)" : "rgba(0,0,0,0)")};
+  border-color: rgb(214, 200, 78);
   border-radius: 0px 0px 12px 12px;
 `;
 
@@ -174,33 +175,72 @@ const MenuRow = styled.div`
   flex-wrap: wrap;
 `;
 
-const MenuItem = styled.div<{ $open?: boolean }>`
+const MenuItem = styled.div`
   width: 20%;
-  align-items: center;
-  /* OneJS/USS: text-align is not valid; use -unity-text-align */
   -unity-text-align: middle-center;
-  opacity: ${(p) => (p.$open ? "0.92" : "0.75")};
+  opacity: 0.92;
 `;
 
-const MenuIconWrap = styled.div<{ $open?: boolean }>`
+const MenuIconWrap = styled.div`
   width: 56px;
   height: 56px;
   margin-left: auto;
   margin-right: auto;
-
-  filter: ${(p) => (p.$open ? "opacity(0.5)" : "opacity(1)")};
 `;
 
-const MenuLabel = styled.div<{ $open?: boolean }>`
+const MenuLabel = styled.div`
   margin-top: 6px;
   font-size: 13px;
   -unity-font-style: bold;
   color: rgba(255, 255, 255, 0.95);
-  opacity: ${(p) => (p.$open ? "1" : "0")};
-  text-shadow: 0px 1px 0px rgba(0, 0, 0, 0.9);
 `;
 
-/* --- RIGHT SIDE 3 ICON RAIL + CONTENT (NO GRID, NO GAP) --- */
+/* --- TOP RIGHT MENU (MOBILE: handle + drawer panel) --- */
+const MobileMenuPos = styled.div`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+`;
+
+const MobileMenuHandle = styled.div`
+  width: 46px;
+  height: 46px;
+
+  background-color: rgba(0, 0, 0, 0.55);
+  border-width: 2px;
+  border-color: rgb(214, 200, 78);
+  border-radius: 10px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ArrowWrap = styled.div`
+  width: 26px;
+  height: 26px;
+`;
+
+const MobileMenuPanel = styled.div<{ $open?: boolean }>`
+  margin-right: 10px;
+  width: ${(p) => (p.$open ? "520px" : "0px")};
+  height: ${(p) => (p.$open ? "auto" : "0px")};
+  overflow: hidden;
+
+  background-color: rgba(0, 0, 0, 0.75);
+  border-width: ${(p) => (p.$open ? "2px" : "0px")};
+  border-color: rgb(214, 200, 78);
+  border-radius: 0px 0px 12px 12px;
+
+  padding: ${(p) => (p.$open ? "10px 12px 12px 12px" : "0px")};
+`;
+
+/* --- RIGHT SIDE 3 ICON RAIL + CONTENT --- */
 const SidePos = styled.div`
   position: absolute;
   top: 120px;
@@ -244,11 +284,9 @@ const RailBtn = styled.div<{ $active?: boolean }>`
   opacity: ${(p) => (p.$active ? "1" : "0.6")};
 `;
 
-const RailIconWrap = styled.div<{ $active?: boolean }>`
+const RailIconWrap = styled.div`
   width: 58px;
   height: 58px;
-
-  filter: ${(p) => (p.$active ? "opacity(0.5)" : "opacity(1)")};
 `;
 
 const RailSpacer = styled.div`
@@ -263,7 +301,6 @@ const ModalShade = styled.div`
   right: 0px;
   bottom: 0px;
   background-color: rgba(0, 0, 0, 0.65);
-  /* Removed pointer-events: OneJS DomStyle doesn't implement pointerEvents */
 `;
 
 const ModalCard = styled.div`
@@ -307,7 +344,7 @@ const ModalBody = styled.div`
   font-size: 13px;
 `;
 
-/* --- BOTTOM UI POSITIONS (KEEP EXACTLY LIKE YOUR WORKING VERSION) --- */
+/* --- BOTTOM UI POSITIONS --- */
 const BarPos = styled.div`
   position: absolute;
   bottom: 80px;
@@ -321,7 +358,7 @@ const GridPos = styled.div`
   right: 16px;
 `;
 
-/* --- types just for the local mock data --- */
+/* --- local types for mock data --- */
 type LbRow = {
   player: string;
   rank: string;
@@ -347,14 +384,21 @@ type ModalKey =
   | "Leaderboard"
   | "Settings";
 
+type MenuItemSpec = {
+  key: Exclude<ModalKey, null>;
+  label: string;
+  icon: string;
+};
+
 export default function () {
   const [expanded, setExpanded] = useState(false);
 
+  // mobile drawer open state
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [sideTab, setSideTab] = useState<"party" | "quest" | "target">("party");
   const [modal, setModal] = useState<ModalKey>(null);
 
-  // mock data for now (wire to game state later)
   const roundTimeLeft = "0:54";
   const roundReward = "0.001 ZOD";
 
@@ -430,8 +474,37 @@ export default function () {
     []
   );
 
+  const menuItems: MenuItemSpec[] = useMemo(
+    () => [
+      { key: "Events", label: "Events", icon: "/evolution/images/events.png" },
+      { key: "Chest", label: "Chest", icon: "/evolution/images/chest.png" },
+      {
+        key: "Inventory",
+        label: "Inventory",
+        icon: "/evolution/images/inventory.png",
+      },
+      { key: "Market", label: "Market", icon: "/evolution/images/market.png" },
+      { key: "Craft", label: "Craft", icon: "/evolution/images/craft.png" },
+      { key: "Guild", label: "Guild", icon: "/evolution/images/guild.png" },
+      { key: "Party", label: "Party", icon: "/evolution/images/party.png" },
+      { key: "PVP", label: "PVP", icon: "/evolution/images/pvp.png" },
+      {
+        key: "Leaderboard",
+        label: "Leaderboard",
+        icon: "/evolution/images/leaderboard.png",
+      },
+      {
+        key: "Settings",
+        label: "Settings",
+        icon: "/evolution/images/settings.png",
+      },
+    ],
+    []
+  );
+
   function openModal(k: ModalKey) {
     setModal(k);
+    setMenuOpen(false);
   }
 
   function renderSideContent() {
@@ -504,19 +577,48 @@ export default function () {
     );
   }
 
+  function renderMenuGrid(items: MenuItemSpec[]) {
+    return (
+      <MenuRow>
+        {items.map((it) => (
+          <MenuItem onPointerDown={() => openModal(it.key)}>
+            <MenuIconWrap>
+              <Icon src={it.icon} />
+            </MenuIconWrap>
+            <MenuLabel>{it.label}</MenuLabel>
+          </MenuItem>
+        ))}
+      </MenuRow>
+    );
+  }
+
   return (
     <Root>
+      {/* BOTTOM CENTER: Action bar swiper */}
+      <BarPos>
+        <ActionBarSwiper
+          onUse={onUseAction}
+          globalCooldownSec={1}
+          bars={bars}
+        />
+      </BarPos>
+
+      {/* BOTTOM RIGHT: emote grid */}
+      <GridPos>
+        <ActionGrid actions={actions} onUse={onUseEmote} />
+      </GridPos>
+
       {/* TOP LEFT HUD */}
       <HudPos>
         <HudPanel>
           <HudTopRow>
             <HudTopLeft>
-              <TimeText class="shadow-text">{roundTimeLeft}</TimeText>
+              <TimeText>{roundTimeLeft}</TimeText>
               <TimeLabel>ROUND TIME LEFT</TimeLabel>
             </HudTopLeft>
 
             <HudTopRight>
-              <RewardText class="shadow-text">{roundReward}</RewardText>
+              <RewardText>{roundReward}</RewardText>
               <RewardLabel>ROUND REWARD</RewardLabel>
             </HudTopRight>
           </HudTopRow>
@@ -528,7 +630,6 @@ export default function () {
             onPointerUp={() => {}}
             onPointerCancel={() => {}}
           >
-            {/* HEADER */}
             <Row>
               <CellPlayer>
                 <HeaderCell>PLAYER</HeaderCell>
@@ -571,7 +672,6 @@ export default function () {
 
             <RowSpacer />
 
-            {/* ROWS */}
             {rows.map((r, i) => (
               <div>
                 <Row>
@@ -623,131 +723,26 @@ export default function () {
         </HudPanel>
       </HudPos>
 
-      {/* TOP RIGHT MENU */}
+      {/* TOP RIGHT MENU: both mounted, only one visible based on Root classes */}
       <TopRightPos>
-        <MenuBox $open={menuOpen}>
-          <MenuRow>
-            <MenuItem
-              $open={menuOpen}
-              onPointerDown={() => openModal("Events")}
-            >
-              <MenuIconWrap $open={menuOpen}>
-                <Icon src="/evolution/images/events.png" />
-              </MenuIconWrap>
-              <MenuLabel $open={menuOpen}>Events</MenuLabel>
-            </MenuItem>
-
-            <MenuItem $open={menuOpen} onPointerDown={() => openModal("Chest")}>
-              <MenuIconWrap $open={menuOpen}>
-                <Icon src="/evolution/images/chest.png" />
-              </MenuIconWrap>
-              <MenuLabel $open={menuOpen}>Chest</MenuLabel>
-            </MenuItem>
-
-            <MenuItem
-              $open={menuOpen}
-              onPointerDown={() => openModal("Inventory")}
-            >
-              <MenuIconWrap $open={menuOpen}>
-                <Icon src="/evolution/images/inventory.png" />
-              </MenuIconWrap>
-              <MenuLabel $open={menuOpen}>Inventory</MenuLabel>
-            </MenuItem>
-
-            <MenuItem
-              $open={menuOpen}
-              onPointerDown={() => openModal("Market")}
-            >
-              <MenuIconWrap $open={menuOpen}>
-                <Icon src="/evolution/images/market.png" />
-              </MenuIconWrap>
-              <MenuLabel $open={menuOpen}>Market</MenuLabel>
-            </MenuItem>
-
-            <MenuItem $open={true} onPointerDown={() => setMenuOpen((v) => !v)}>
-              <MenuIconWrap $open={menuOpen}>
-                <Icon src="/evolution/images/settings.png" />
-              </MenuIconWrap>
-              <MenuLabel $open={true}>
-                {menuOpen ? "Close" : "Settings"}
-              </MenuLabel>
-            </MenuItem>
-
-            {menuOpen ? (
-              <div style={{ width: "100%", height: "10px" }} />
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem
-                $open={menuOpen}
-                onPointerDown={() => openModal("Craft")}
-              >
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/craft.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>Craft</MenuLabel>
-              </MenuItem>
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem
-                $open={menuOpen}
-                onPointerDown={() => openModal("Guild")}
-              >
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/guild.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>Guild</MenuLabel>
-              </MenuItem>
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem
-                $open={menuOpen}
-                onPointerDown={() => openModal("Party")}
-              >
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/party.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>Party</MenuLabel>
-              </MenuItem>
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem $open={menuOpen} onPointerDown={() => openModal("PVP")}>
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/pvp.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>PVP</MenuLabel>
-              </MenuItem>
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem
-                $open={menuOpen}
-                onPointerDown={() => openModal("Leaderboard")}
-              >
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/leaderboard.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>Leaderboard</MenuLabel>
-              </MenuItem>
-            ) : null}
-
-            {menuOpen ? (
-              <MenuItem
-                $open={menuOpen}
-                onPointerDown={() => openModal("Settings")}
-              >
-                <MenuIconWrap $open={menuOpen}>
-                  <Icon src="/evolution/images/settings.png" />
-                </MenuIconWrap>
-                <MenuLabel $open={menuOpen}>Settings</MenuLabel>
-              </MenuItem>
-            ) : null}
-          </MenuRow>
-        </MenuBox>
+        <DesktopOnly>
+          <MenuBox>{renderMenuGrid(menuItems)}</MenuBox>
+        </DesktopOnly>
       </TopRightPos>
+
+      <MobileOnly>
+        <MobileMenuPos>
+          <MobileMenuPanel $open={menuOpen}>
+            <MenuBox>{renderMenuGrid(menuItems)}</MenuBox>
+          </MobileMenuPanel>
+
+          <MobileMenuHandle onPointerDown={() => setMenuOpen((v) => !v)}>
+            <ArrowWrap>
+              <Icon src="/evolution/images/arrow_left.png" />
+            </ArrowWrap>
+          </MobileMenuHandle>
+        </MobileMenuPos>
+      </MobileOnly>
 
       {/* RIGHT SIDE 3 ICON RAIL + CONTENT */}
       <SidePos>
@@ -758,7 +753,7 @@ export default function () {
             $active={sideTab === "quest"}
             onPointerDown={() => setSideTab("quest")}
           >
-            <RailIconWrap $active={sideTab === "quest"}>
+            <RailIconWrap>
               <Icon src="/evolution/images/quest.png" />
             </RailIconWrap>
           </RailBtn>
@@ -769,7 +764,7 @@ export default function () {
             $active={sideTab === "party"}
             onPointerDown={() => setSideTab("party")}
           >
-            <RailIconWrap $active={sideTab === "party"}>
+            <RailIconWrap>
               <Icon src="/evolution/images/party.png" />
             </RailIconWrap>
           </RailBtn>
@@ -780,33 +775,18 @@ export default function () {
             $active={sideTab === "target"}
             onPointerDown={() => setSideTab("target")}
           >
-            <RailIconWrap $active={sideTab === "target"}>
+            <RailIconWrap>
               <Icon src="/evolution/images/target.png" />
             </RailIconWrap>
           </RailBtn>
         </SideRail>
       </SidePos>
 
-      {/* BOTTOM CENTER: Action bar swiper */}
-      <BarPos>
-        <ActionBarSwiper
-          onUse={onUseAction}
-          globalCooldownSec={1}
-          bars={bars}
-        />
-      </BarPos>
-
-      {/* BOTTOM RIGHT: emote grid */}
-      <GridPos>
-        <ActionGrid actions={actions} onUse={onUseEmote} />
-      </GridPos>
-
       {/* DUMMY MODAL */}
       {modal ? (
         <ModalShade onPointerDown={() => setModal(null)}>
           <ModalCard
             onPointerDown={(e) => {
-              // Unity UIElements pointer events: StopPropagation (capital S)
               (e as any)?.StopPropagation?.();
             }}
           >

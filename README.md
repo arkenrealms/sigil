@@ -87,9 +87,6 @@ WHEN IN DOUBT:
 <img width="171" height="65" alt="image" src="https://github.com/user-attachments/assets/7b1cf68d-a725-4011-9e78-cc7b9dd7c0d9" />
 
 
-### Prompting
-
-
 ### Debugging
 
 The most obtuse one that kept coming up is this error, which seems to be when unity finds an attribute like `filter` but fails to find the option, ie. if it has `filter: opacity(1)` which finds `opacity` but can't find `none` for `filter: none` . Their internal rendering must be so complex that in some situations it even silently fails to continue rendering.
