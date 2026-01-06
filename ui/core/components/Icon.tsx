@@ -41,10 +41,18 @@ async function ensureCached(remoteUrl: string, assetRel: string) {
   throw new Error(`Timed out caching: ${remoteUrl} -> ${assetRel}`);
 }
 
-const Wrap = styled.div`
-  width: 100%;
-  height: 100%;
+/* ───────────────────────────── */
+/* styled components              */
+/* ───────────────────────────── */
+
+const Wrap = styled.div<{
+  $w?: number;
+  $h?: number;
+}>`
   position: relative;
+
+  width: ${(p) => (p.$w != null ? `${p.$w}px` : "100%")};
+  height: ${(p) => (p.$h != null ? `${p.$h}px` : "100%")};
 `;
 
 const Layer = styled.div`
@@ -58,7 +66,7 @@ const Layer = styled.div`
   background-position: center;
 `;
 
-// Shadow layer: uses UI Toolkit supported transform props
+// Shadow layer: UI Toolkit–safe transforms
 const ShadowLayer = styled.div<{
   $dx: number;
   $dy: number;
@@ -79,24 +87,33 @@ const ShadowLayer = styled.div<{
   scale: ${(p) => p.$scale} ${(p) => p.$scale};
   transform-origin: 50% 50%;
 
-  /* these are "best effort" — if your USS/UITK parser supports them, great */
   filter: blur(2px) grayscale(1) tint(#000);
 `;
+
+/* ───────────────────────────── */
+/* component                      */
+/* ───────────────────────────── */
 
 export function Icon(props: {
   src?: string;
 
-  /** If true, render a duplicated dark "shadow" under the icon */
-  shadow?: boolean;
+  /** Optional fixed size (px). If omitted → fills parent */
+  width?: number;
+  height?: number;
 
-  /** Optional tuning (only used when shadow=true) */
-  shadowDx?: number; // px
-  shadowDy?: number; // px
-  shadowScale?: number; // 1.0 = same size
-  shadowOpacity?: number; // 0..1
+  /** Shadow rendering */
+  shadow?: boolean;
+  shadowDx?: number;
+  shadowDy?: number;
+  shadowScale?: number;
+  shadowOpacity?: number;
 }) {
   const {
     src,
+
+    width,
+    height,
+
     shadow = false,
     shadowDx = 2,
     shadowDy = 2,
@@ -134,7 +151,7 @@ export function Icon(props: {
   const style = bg ? { backgroundImage: bg } : undefined;
 
   return (
-    <Wrap>
+    <Wrap $w={width} $h={height}>
       {shadow ? (
         <ShadowLayer
           $dx={shadowDx}

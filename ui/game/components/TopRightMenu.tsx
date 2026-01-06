@@ -84,30 +84,8 @@ const IconLayer = styled.div<{
   opacity: ${(p) => p.$opacity ?? 1};
   translate: ${(p) => `${p.$dx ?? 0}px ${p.$dy ?? 0}px`};
 
-  /* ✅ UI Toolkit: scale is its own property, not transform */
   scale: ${(p) => p.$scale ?? 1} ${(p) => p.$scale ?? 1};
   transform-origin: 50% 50%;
-`;
-
-const ShadowLayer = styled.div<{
-  $dx?: number;
-  $dy?: number;
-  $scale?: number;
-  $opacity?: number;
-}>`
-  position: absolute;
-  left: 0px;
-  top: 0px;
-  width: 100%;
-  height: 100%;
-
-  opacity: ${(p) => p.$opacity ?? 1};
-  translate: ${(p) => `${p.$dx ?? 0}px ${p.$dy ?? 0}px`};
-
-  /* ✅ UI Toolkit: scale is its own property, not transform */
-  scale: ${(p) => p.$scale ?? 1} ${(p) => p.$scale ?? 1};
-  transform-origin: 50% 50%;
-  filter: blur(2px) grayscale(1) tint(#000);
 `;
 
 const MenuLabel = styled.div`
@@ -220,7 +198,7 @@ export function TopRightMenu(props: {
           return (
             <MenuItem onPointerDown={() => onItemPress(it.key)}>
               <MenuIconWrap>
-                <Icon src={it.icon} shadow />
+                <Icon src={it.icon} shadow width={60} height={60} />
               </MenuIconWrap>
               {desktopExpanded ? <MenuLabel>{label}</MenuLabel> : null}
             </MenuItem>
@@ -248,7 +226,7 @@ export function TopRightMenu(props: {
 
           <MobileMenuHandle onPointerDown={() => setMobileOpen((v) => !v)}>
             <ArrowWrap>
-              <Icon src={spec.mobileHandleIcon} />
+              <Icon src={spec.mobileHandleIcon} width={60} height={60} />
             </ArrowWrap>
           </MobileMenuHandle>
         </MobileMenuPos>

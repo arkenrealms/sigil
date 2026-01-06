@@ -16,6 +16,7 @@ import {
 import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
+import { Text } from "../../core/components/Text";
 
 declare const CS: any;
 
@@ -34,10 +35,9 @@ const Lines = styled.div`
   white-space: pre-line;
 `;
 
+// Keep Line only for spacing (Text handles font/color/shadow)
 const Line = styled.div<{ $last?: boolean }>`
   margin-bottom: ${(p) => (p.$last ? "0px" : "4px")};
-  font-size: 18px;
-  color: #fff;
 `;
 
 const SideTitle = styled.div`
@@ -47,7 +47,7 @@ const SideTitle = styled.div`
   margin-bottom: 10px;
 `;
 
-/** USS bold belongs in styled components (not inline style objects) */
+/** Kept for non-Text legacy usage (party/quest headings etc.) */
 const Emph = styled.div`
   display: inline;
   color: rgb(214, 200, 78);
@@ -364,11 +364,19 @@ export default function () {
             >
               <Lines>
                 <Line>
-                  <Emph>{m.name}</Emph> (Lv {m.level})
+                  <Text shadow size={18} color="#fff">
+                    {m.name} (Lv {m.level})
+                  </Text>
                 </Line>
-                <Line>Power: {m.power}</Line>
+                <Line>
+                  <Text shadow size={18} color="#fff">
+                    Power: {m.power}
+                  </Text>
+                </Line>
                 <Line $last={true}>
-                  {m.area} • {m.channel}
+                  <Text shadow size={18} color="#fff">
+                    {m.area} • {m.channel}
+                  </Text>
                 </Line>
               </Lines>
             </div>
@@ -389,9 +397,15 @@ export default function () {
             >
               <Lines>
                 <Line>
-                  <Emph>{q.title}</Emph>
+                  <Text shadow size={18} color="#fff">
+                    {q.title}
+                  </Text>
                 </Line>
-                <Line $last={true}>Progress: {q.progress}</Line>
+                <Line $last={true}>
+                  <Text shadow size={18} color="#fff">
+                    Progress: {q.progress}
+                  </Text>
+                </Line>
               </Lines>
             </div>
           ))}
@@ -406,11 +420,19 @@ export default function () {
 
         {!gameInfo?.gameMode ? (
           <Lines>
-            <Line>Loading...</Line>
+            <Line $last={true}>
+              <Text shadow size={18} color="#fff">
+                Loading...
+              </Text>
+            </Line>
           </Lines>
         ) : (
           <Lines>
-            <Line>{gameInfo.gameMode.toUpperCase()}</Line>
+            <Line $last={true}>
+              <Text shadow size={22} bold color="rgb(214, 200, 78)">
+                {gameInfo.gameMode.toUpperCase()}
+              </Text>
+            </Line>
           </Lines>
         )}
       </div>
@@ -421,6 +443,8 @@ export default function () {
     <Wrapper
       style={
         {
+          // NOTE: UITK doesn't support transform: scale; keep only transformOrigin
+          // If you still want zoom, use `scale:` property elsewhere like you did for icons.
           transform: `scale(${scale})`,
           transformOrigin: "0px 0px",
           width: `${inv * 100}%`,
@@ -465,10 +489,16 @@ export default function () {
                 <SettingsPanel />
               ) : (
                 <Lines>
-                  <Line>Dummy content for {modal}.</Line>
+                  <Line>
+                    <Text shadow size={18} color="#fff">
+                      Dummy content for {modal}.
+                    </Text>
+                  </Line>
                   <Line $last={true}>
-                    Later: wire this to your real views (Market, Inventory,
-                    Settings, etc).
+                    <Text shadow size={18} color="#fff">
+                      Later: wire this to your real views (Market, Inventory,
+                      Settings, etc).
+                    </Text>
                   </Line>
                 </Lines>
               )}
