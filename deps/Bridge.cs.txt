@@ -1,0 +1,137 @@
+// Assets/Arken/Bridge.cs
+//
+// Purpose:
+// - Provide a stable C# entrypoint that OneJS can call: CS.Arken.Bridge.Instance.Emit(type, payloadJson)
+// - If running in WebBridge mode, forward to WebCommunicator.PostJson (web page handles it)
+// - Otherwise, forward to NetworkManager.Emit(type, JSONObject(payloadJson)) (native SocketIO path)
+//
+// Usage from OneJS:
+//   CS.Arken.Bridge.Instance.Emit("emote", JSON.stringify(emoteId))
+//   CS.Arken.Bridge.Instance.Emit("action", JSON.stringify(actionId))
+//   CS.Arken.Bridge.Instance.Emit("something", JSON.stringify({ ... }))
+
+using System;
+using UnityEngine;
+
+namespace Arken {
+    public class Bridge : MonoBehaviour {
+        public static Bridge Instance;
+
+        // Fires for every server-dispatched event
+        public event Action<string, string> OnServerEvent;
+
+        [Serializable]
+        private class Envelope {
+            public string type;
+            public string payload;     // stringified JSON payload (or raw string)
+            public long ts;            // client timestamp
+            public string source;      // "onejs"
+        }
+
+        void Start()
+        {
+            // if don't exist an instance of this class
+            if (Instance == null)
+            {
+                //it doesn't destroy the object, if other scene be loaded
+                DontDestroyOnLoad(this.gameObject);
+
+                Instance = this;// define the class as a static variable
+            }
+            else
+            {
+                //it destroys the class if already other class exists
+                Destroy(this.gameObject);
+            }
+        }
+
+        private void SafeInvoke(Action a, string label)
+        {
+            try { a?.Invoke(); }
+            catch (Exception e) { Debug.LogError($"{label} failed: {e}"); }
+        }
+
+        public void HandleServerEvent(string eventName, string args) {
+            SafeInvoke(() => OnServerEvent?.Invoke(eventName, args), "OnServerEvent");
+        }
+
+        /// <summary>
+        /// Called by OneJS: CS.Arken.Bridge.Emit("action", "\"adsada2\"") or CS.Arken.Bridge.Emit("emote", "\"10019\"")
+        /// payloadJson should be JSON (string/number/object/array). If you pass a plain string, wrap it in quotes or use JSON.stringify().
+        /// </summary>
+        public void Emit(string type, string payloadJson) {
+            Debug.Log($"Received event from UI {type} {payloadJson}");
+
+            if (string.IsNullOrEmpty(type)) {
+                Debug.LogWarning("[Arken.Bridge] Emit called with empty type");
+                return;
+            }
+
+            // Normalize payloadJson: if null/empty, treat as "null"
+            var payload = string.IsNullOrEmpty(payloadJson) ? "null" : payloadJson;
+
+            // Web envelope (used only when in WebBridge mode)
+            var env = new Envelope {
+                type = type,
+                payload = payload,
+                ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                source = "onejs"
+            };
+
+            var msg = JsonUtility.ToJson(env);
+
+            try {
+                // If NetworkManager exists and is running WebBridge,
+                // keep routing to the web page (Vuplex) exactly like before.
+                var nm = Arken.Evolution.NetworkManager.Instance;
+                if (nm != null && nm.TransportMode == Arken.Evolution.NetworkTransportMode.WebBridge) {
+                    Arken.Web.WebCommunicator.PostJson(msg);
+                    return;
+                }
+
+                // Otherwise: send directly to the server via NetworkManager.
+                if (nm == null) {
+                    Debug.LogWarning("[Arken.Bridge] NetworkManager.Instance is null; dropping: " + type);
+                    return;
+                }
+
+                // Convert payloadJson -> JSONObject.
+                // NOTE: This assumes your JSONObject implementation can parse arbitrary JSON,
+                // including JSON strings like "\"10019\"".
+                JSONObject jo = null;
+                if (!string.IsNullOrEmpty(payload) && payload != "null") {
+                    jo = new JSONObject(payload);
+                }
+
+                // Use Emit because your OneJS "type" values look like event names ("action", "emote", etc).
+                // If your server expects TRPC instead, swap to: nm.Call(type, jo);
+                nm.Call(type, jo);
+            }
+            catch (Exception ex) {
+                Debug.LogWarning("[Arken.Bridge] Emit routing failed: " + ex);
+            }
+        }
+
+        /// <summary>
+        /// Convenience overload: Emit raw string payload without requiring JSON.stringify() on JS side.
+        /// Example: CS.Arken.Bridge.EmitString("action", "adsada2")
+        /// </summary>
+        public void EmitString(string type, string payloadString) {
+            var json = JsonString(payloadString ?? "");
+            Emit(type, json);
+        }
+
+        /// <summary>
+        /// Minimal JSON string escaper (enough for ids).
+        /// </summary>
+        private string JsonString(string s) {
+            return "\"" + s
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t")
+                + "\"";
+        }
+    }
+}

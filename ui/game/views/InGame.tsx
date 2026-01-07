@@ -20,33 +20,14 @@ import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
 
-const onUseAction = (actionId: string) =>
-  CS.Arken.Bridge.Emit("action", JSON.stringify(actionId));
-const onUseEmote = (emoteId: string) =>
-  CS.Arken.Bridge.Emit("emote", JSON.stringify(emoteId));
-
-function requestRevive() {
-  // Matches the old web behavior: sendShardMessage(load) while spectating
-  // In OneJS, simplest: ask server/network manager to load again.
-  // If your C# listens to Bridge "load", prefer that instead.
-  try {
-    CS?.Arken?.Bridge?.Emit?.("load", JSON.stringify([]));
-  } catch (e) {
-    // fallback: if you have a direct API
-    const nm = getNetworkManagerInstance();
-    nm?.load?.();
-  }
-}
-
-function requestReconnect() {
-  // Old web: socket join. Here, re-trigger load/login flow.
-  try {
-    CS?.Arken?.Bridge?.Emit?.("join", JSON.stringify({}));
-  } catch (e) {
-    const nm = getNetworkManagerInstance();
-    nm?.join?.();
-  }
-}
+const emitAction = (actionId: string) =>
+  CS.Arken.Bridge.Instance?.Emit("action", JSON.stringify(actionId));
+const emitEmote = (emoteId: string) =>
+  CS.Arken.Bridge.Instance?.Emit("emote", JSON.stringify(emoteId));
+const emitLoad = () =>
+  CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
+const emitJoin = () =>
+  CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
 
 const StatusOverlay = styled.div`
   position: absolute;
@@ -279,11 +260,6 @@ type Upgrade = {
   src?: string;
 };
 
-/** Adjust this if your binding is different */
-function getNetworkManagerInstance(): any {
-  return CS?.Arken?.Evolution?.NetworkManager?.Instance ?? null;
-}
-
 function parseRoundInfo(payload: string): GameInfo {
   const parts = (payload ?? "").split(":");
   if (parts.length < 10) return {};
@@ -341,10 +317,9 @@ export default function () {
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
 
-  // NEW: subscribe to NetworkManager.OnServerEvent
   useEffect(() => {
-    const nm = getNetworkManagerInstance();
-    if (!nm) {
+    const bridge = CS?.Arken?.Bridge?.Instance;
+    if (!bridge) {
       console.log(
         "[OneJS] NetworkManager.Instance not found; events not bound."
       );
@@ -436,10 +411,10 @@ export default function () {
       }
     };
 
-    if (typeof nm.add_OnServerEvent === "function") {
-      nm.add_OnServerEvent(onServerEvent);
+    if (typeof bridge.add_OnServerEvent === "function") {
+      bridge.add_OnServerEvent(onServerEvent);
       return () => {
-        nm.remove_OnServerEvent?.(onServerEvent);
+        bridge.remove_OnServerEvent?.(onServerEvent);
       };
     }
 
@@ -666,14 +641,14 @@ export default function () {
         <Scaled $scale={scale}>
           <BarPos>
             <ActionBarSwiper
-              onUse={onUseAction}
+              onUse={emitAction}
               globalCooldownSec={1}
               bars={bars}
             />
           </BarPos>
 
           <GridPos>
-            <ActionGrid actions={actions} onUse={onUseEmote} />
+            <ActionGrid actions={actions} onUse={emitEmote} />
           </GridPos>
 
           <Hud spec={hudSpec} />
@@ -691,7 +666,7 @@ export default function () {
               upgrades={upgrades}
               onUse={(upgradeId) => {
                 setIsUpgradeOpen(false);
-                CS.Arken.Bridge.Emit(
+                CS.Arken.Bridge.Instance.Emit(
                   "chooseUpgrade",
                   JSON.stringify(upgradeId)
                 );
@@ -719,7 +694,7 @@ export default function () {
             <ButtonLike
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={() => requestRevive()}
+              onClick={() => emitLoad()}
             >
               Revive
             </ButtonLike>
@@ -733,7 +708,7 @@ export default function () {
             <ButtonLike
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={() => requestReconnect()}
+              onClick={() => emitJoin()}
             >
               Reconnect
             </ButtonLike>

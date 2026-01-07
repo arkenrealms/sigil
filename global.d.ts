@@ -8,8 +8,12 @@ declare global {
   namespace CS {
     namespace Arken {
       namespace Bridge {
-        function Emit(type: string, payloadJson: string): void;
-        function EmitString(type: string, payload: string): void;
+        namespace Instance {
+          function add_OnServerEvent(handler: function): void;
+          function remove_OnServerEvent(handler: function): void;
+          function Emit(type: string, payloadJson: string): void;
+          function EmitString(type: string, payload: string): void;
+        }
       }
 
       namespace Evolution {
