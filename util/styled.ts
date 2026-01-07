@@ -2,19 +2,8 @@
 import _styled from "preact/styled";
 import type { ComponentType } from "preact";
 
-/**
- * OneJS / onejs-preact sometimes returns components with a signature like:
- *   (props, ref) => Element
- * or other extra args.
- *
- * So we must treat "component" as callable with (props, ...rest).
- */
 type AnyCallableComp<P = any> = (props: P, ...rest: any[]) => any;
-
-// Also allow normal Preact component types
 type AnyComp<P = any> = ComponentType<P> | AnyCallableComp<P>;
-
-/** Extract props from either ComponentType<P> or (props:P,...rest)=>any */
 type PropsOf<C> = C extends (props: infer P, ...rest: any[]) => any
   ? P
   : C extends ComponentType<infer P>
@@ -23,12 +12,8 @@ type PropsOf<C> = C extends (props: infer P, ...rest: any[]) => any
 
 type IntrinsicProps<K extends keyof JSX.IntrinsicElements> =
   JSX.IntrinsicElements[K];
-
 type StyledComponent<P> = ComponentType<P>;
 
-/**
- * Tag builder: styled.div<P>`...` -> component that takes (div props + P)
- */
 type StyledTags = {
   [K in keyof JSX.IntrinsicElements]: <P = {}>(
     strings: TemplateStringsArray,
@@ -36,27 +21,17 @@ type StyledTags = {
   ) => StyledComponent<IntrinsicProps<K> & P>;
 };
 
-/**
- * Component builder: styled(Component)`...` -> component that takes Component props (+ extra)
- *
- * NOTE: We don't force generics here; we infer props from the input component.
- */
 type StyledWrap = {
   <C extends AnyComp<any>, PExtra = {}>(component: C): (
     strings: TemplateStringsArray,
     ...values: any[]
   ) => StyledComponent<PropsOf<C> & PExtra>;
 
-  /** callable form: styled("div")`...` */
   <K extends keyof JSX.IntrinsicElements, PExtra = {}>(tag: K): (
     strings: TemplateStringsArray,
     ...values: any[]
   ) => StyledComponent<IntrinsicProps<K> & PExtra>;
 
-  /**
-   * Very loose overload for custom tags like "cooldownradial"
-   * (unless you augment JSX.IntrinsicElements)
-   */
   <PExtra = {}>(tag: string): (
     strings: TemplateStringsArray,
     ...values: any[]
@@ -65,6 +40,45 @@ type StyledWrap = {
 
 type Styled = StyledWrap & StyledTags;
 
-// Runtime is still OneJS's styled; we only improve types.
-const styled = _styled as unknown as Styled;
+// -------- runtime guard --------
+
+const raw = _styled as any;
+
+/**
+ * Creates a template tag function that throws with a clear message.
+ * This prevents "silent UI death" when calling styled.img`...`.
+ */
+function unsupportedTag(tag: string) {
+  return (_strings: TemplateStringsArray, ..._values: any[]) => {
+    throw new Error(
+      `[styled] Unsupported tag "${tag}". ` +
+        `OneJS/UI Toolkit does not provide this intrinsic. ` +
+        `Use a supported tag (div/span) or a real component (e.g. <Icon />), ` +
+        `or use styled("Image") only if you have that intrinsic registered.`
+    );
+  };
+}
+
+/**
+ * Proxy: if you access styled.img / styled.style etc and it's missing on runtime styled,
+ * we throw immediately (instead of returning undefined and crashing later).
+ */
+const styled = new Proxy(raw, {
+  get(target, prop) {
+    const v = (target as any)[prop as any];
+
+    // let normal properties/methods work
+    if (v != null) return v;
+
+    // If someone asks for a tag helper that doesn't exist, fail loudly.
+    if (typeof prop === "string") return unsupportedTag(prop);
+
+    return v;
+  },
+  apply(target, thisArg, argArray) {
+    // styled(Component) / styled("div") still works
+    return Reflect.apply(target as any, thisArg, argArray);
+  },
+}) as unknown as Styled;
+
 export default styled;

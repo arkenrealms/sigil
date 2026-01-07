@@ -58,12 +58,11 @@ export function SettingsPanel() {
 
   return (
     <Wrap>
-      <Row>
-        <Title>UI Zoom</Title>
-        <Value>{zoom}%</Value>
+      {/* <Row>
+        <Title>Settings</Title>
       </Row>
 
-      <Spacer />
+      <Spacer /> */}
 
       {/* slider is 0..200, we snap to 1% steps */}
       <Slider
@@ -77,7 +76,7 @@ export function SettingsPanel() {
       />
 
       <Row style={{ marginTop: "10px" } as any}>
-        <Help>Scales the entire UI (0%–200%).</Help>
+        <Help></Help>
         <ResetBtn onPointerDown={() => setUiZoomPercent(100)}>Reset</ResetBtn>
       </Row>
     </Wrap>

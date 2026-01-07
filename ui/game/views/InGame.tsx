@@ -1,6 +1,6 @@
 // sigil/ui/game/views/InGame.tsx
 import { h } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import styled from "../../../util/styled";
 import { ActionBarSwiper } from "../../actions/components/ActionBarSwiper";
 import { ActionGrid } from "../../actions/components/ActionGrid";
@@ -8,6 +8,8 @@ import actions from "../../../data/actions";
 import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
 import { useLeaderboard } from "../state/useLeaderboard";
+import UpgradeGrid from "../components/UpgradeGrid";
+import { PickingMode } from "UnityEngine/UIElements";
 import {
   ActionHub,
   ActionHubItem,
@@ -23,11 +25,113 @@ const onUseAction = (actionId: string) =>
 const onUseEmote = (emoteId: string) =>
   CS.Arken.Bridge.Emit("emote", JSON.stringify(emoteId));
 
+function requestRevive() {
+  // Matches the old web behavior: sendShardMessage(load) while spectating
+  // In OneJS, simplest: ask server/network manager to load again.
+  // If your C# listens to Bridge "load", prefer that instead.
+  try {
+    CS?.Arken?.Bridge?.Emit?.("load", JSON.stringify([]));
+  } catch (e) {
+    // fallback: if you have a direct API
+    const nm = getNetworkManagerInstance();
+    nm?.load?.();
+  }
+}
+
+function requestReconnect() {
+  // Old web: socket join. Here, re-trigger load/login flow.
+  try {
+    CS?.Arken?.Bridge?.Emit?.("join", JSON.stringify({}));
+  } catch (e) {
+    const nm = getNetworkManagerInstance();
+    nm?.join?.();
+  }
+}
+
+const StatusOverlay = styled.div`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background-color: rgba(0, 0, 0, 0.35);
+
+  /* let children decide pointer handling */
+`;
+
+const StatusCard = styled.div`
+  background-color: rgba(0, 0, 0, 0.92);
+  border-width: 2px;
+  border-color: rgb(214, 200, 78);
+  border-radius: 12px;
+  padding: 14px 18px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const BottomCenter = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 50px;
+  translate: -50% 0;
+
+  /* must explicitly receive pointer events */
+`;
+
+const ButtonFrame = styled.div`
+  background-color: rgba(0, 0, 0, 0.92);
+  border-width: 2px;
+  border-color: rgb(214, 200, 78);
+  border-radius: 12px;
+  padding: 10px;
+`;
+
+const ButtonLike = styled.div`
+  width: 150px;
+  padding: 10px 12px;
+
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.08);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: rgba(255, 255, 255, 0.92);
+  -unity-font-style: bold;
+`;
+
 /** Full-screen, unscaled root */
 const Wrapper = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+`;
+
+const UpgradeOverlay = styled.div`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+
+  /* no z-index in USS — ensure this node is rendered AFTER Scaled in JSX */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: rgba(0, 0, 0, 0.55);
+`;
+
+const UpgradeOverlayInner = styled.div`
+  /* receives pointer events */
 `;
 
 /** Everything inside here is zoomed */
@@ -159,6 +263,22 @@ type GameInfo = {
   gameMode?: string;
 };
 
+type UiState =
+  | "none"
+  | "loading"
+  | "joining"
+  | "joined"
+  | "spectating"
+  | "disconnected";
+
+type Upgrade = {
+  id: string;
+  keybind: string;
+  name: string;
+  description: string;
+  src?: string;
+};
+
 /** Adjust this if your binding is different */
 function getNetworkManagerInstance(): any {
   return CS?.Arken?.Evolution?.NetworkManager?.Instance ?? null;
@@ -199,10 +319,17 @@ function formatMMSS(totalSec?: number) {
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
 
+  // state machine (from old web impl)
+  const state = useRef<UiState>("none");
+  const [uiState, setUiState] = useState<UiState>("none");
+  function setState(next: UiState) {
+    state.current = next;
+    setUiState(next);
+  }
+
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
   const zoom = clamp(zoomRaw, 50, 150);
-
   const scale = zoom / 100;
 
   const lb = useLeaderboard();
@@ -211,35 +338,113 @@ export default function () {
   const [gameInfo, setGameInfo] = useState<GameInfo>({});
   const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
 
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
+
+  // NEW: subscribe to NetworkManager.OnServerEvent
   useEffect(() => {
     const nm = getNetworkManagerInstance();
     if (!nm) {
       console.log(
-        "[OneJS] NetworkManager.Instance not found; round info not bound."
+        "[OneJS] NetworkManager.Instance not found; events not bound."
       );
       return;
     }
 
-    const onRoundInfo = (payload: string) => {
-      const info = parseRoundInfo(payload);
+    const onServerEvent = (eventName: string, args: string) => {
+      // ---- state transitions ----
+      if (eventName === "onLoaded") {
+        setState("loading");
+        return;
+      }
 
-      setGameInfo((prev) => ({ ...prev, ...info }));
+      if (eventName === "onLogin") {
+        setState("joining");
+        return;
+      }
 
-      if (typeof info.timerSec === "number") {
-        setServerTimerSec(info.timerSec); // authoritative reset
+      if (eventName === "onJoinGame") {
+        setState("joined");
+        return;
+      }
+
+      if (eventName === "onSpectate" || eventName === "onGameOver") {
+        setState("spectating");
+        return;
+      }
+
+      if (eventName === "onDisconnected") {
+        setState("disconnected");
+        return;
+      }
+
+      // ---- data events ----
+      if (eventName === "onSetRoundInfo") {
+        const info = parseRoundInfo(args);
+
+        setGameInfo((prev) => ({ ...prev, ...info }));
+
+        if (typeof info.timerSec === "number") {
+          setServerTimerSec(info.timerSec); // authoritative reset
+        }
+        return;
+      }
+
+      if (eventName === "onUpgrade") {
+        /**
+         * Old payload format:
+         * updatesPending:rerolls,upgradeId1,upgradeId2,upgradeId3
+         */
+        try {
+          const parts = args.split(",");
+          const upgradeId1 = parts[1];
+          const upgradeId2 = parts[2];
+          const upgradeId3 = parts[3];
+
+          // TODO: replace with server-driven data later
+          setUpgrades([
+            {
+              id: upgradeId1,
+              keybind: "1",
+              name: "BLM Shield",
+              description:
+                "Chaotic fire surrounds you for 10 seconds. You feel compelled to burn it all down.",
+              src: "/images/skills/200.png",
+            },
+            {
+              id: upgradeId2,
+              keybind: "2",
+              name: "Montana Speed",
+              description: "Gain +30% speed for 5 seconds.",
+              src: "/images/skills/201.png",
+            },
+            {
+              id: upgradeId3,
+              keybind: "3",
+              name: "Forrest Bump's Blessing",
+              description: "Gain +10% speed for 30 seconds.",
+              src: "/images/skills/202.png",
+            },
+          ]);
+
+          setIsUpgradeOpen(true);
+        } catch (e) {
+          console.warn("[Upgrade] Failed to parse onUpgrade payload", args);
+        }
+
+        return;
       }
     };
 
-    // exact same subscription style as leaderboard
-    if (typeof nm.add_OnSetRoundInfo === "function") {
-      nm.add_OnSetRoundInfo(onRoundInfo);
+    if (typeof nm.add_OnServerEvent === "function") {
+      nm.add_OnServerEvent(onServerEvent);
       return () => {
-        nm.remove_OnSetRoundInfo?.(onRoundInfo);
+        nm.remove_OnServerEvent?.(onServerEvent);
       };
     }
 
     console.log(
-      "[OneJS] Warning: add_OnSetRoundInfo missing; round info event not bound."
+      "[OneJS] Warning: add_OnServerEvent missing; server events not bound."
     );
     return;
   }, []);
@@ -457,26 +662,84 @@ export default function () {
 
   return (
     <Wrapper>
-      {/* ✅ Everything here is zoomed */}
-      <Scaled $scale={scale}>
-        <BarPos>
-          <ActionBarSwiper
-            onUse={onUseAction}
-            globalCooldownSec={1}
-            bars={bars}
-          />
-        </BarPos>
+      {state.current === "joined" ? (
+        <Scaled $scale={scale}>
+          <BarPos>
+            <ActionBarSwiper
+              onUse={onUseAction}
+              globalCooldownSec={1}
+              bars={bars}
+            />
+          </BarPos>
 
-        <GridPos>
-          <ActionGrid actions={actions} onUse={onUseEmote} />
-        </GridPos>
+          <GridPos>
+            <ActionGrid actions={actions} onUse={onUseEmote} />
+          </GridPos>
 
-        <Hud spec={hudSpec} />
+          <Hud spec={hudSpec} />
 
-        <ActionHub spec={menuSpec} onSelect={openModal} />
+          <ActionHub spec={menuSpec} onSelect={openModal} />
 
-        <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
-      </Scaled>
+          <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
+        </Scaled>
+      ) : null}
+
+      {state.current === "spectating" && isUpgradeOpen ? (
+        <UpgradeOverlay picking-mode={PickingMode.Position}>
+          <UpgradeOverlayInner picking-mode={PickingMode.Position}>
+            <UpgradeGrid
+              upgrades={upgrades}
+              onUse={(upgradeId) => {
+                setIsUpgradeOpen(false);
+                CS.Arken.Bridge.Emit(
+                  "chooseUpgrade",
+                  JSON.stringify(upgradeId)
+                );
+              }}
+            />
+          </UpgradeOverlayInner>
+        </UpgradeOverlay>
+      ) : null}
+
+      {state.current === "none" || state.current === "loading" ? (
+        <StatusOverlay picking-mode={PickingMode.Position}>
+          <BottomCenter picking-mode={PickingMode.Position}>
+            <StatusCard picking-mode={PickingMode.Position}>
+              <Text size={22} bold color="rgb(214, 200, 78)">
+                Connecting
+              </Text>
+            </StatusCard>
+          </BottomCenter>
+        </StatusOverlay>
+      ) : null}
+
+      {state.current === "spectating" ? (
+        <BottomCenter picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <ButtonLike
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={() => requestRevive()}
+            >
+              Revive
+            </ButtonLike>
+          </ButtonFrame>
+        </BottomCenter>
+      ) : null}
+
+      {state.current === "disconnected" ? (
+        <BottomCenter picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <ButtonLike
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={() => requestReconnect()}
+            >
+              Reconnect
+            </ButtonLike>
+          </ButtonFrame>
+        </BottomCenter>
+      ) : null}
 
       {/* ✅ Modal is NOT scaled, so it always covers the full screen */}
       {modal ? (
@@ -488,9 +751,7 @@ export default function () {
           >
             <ModalHeader>
               <ModalTitle>{modal}</ModalTitle>
-              <ModalClose onPointerDown={() => setModal(null)}>
-                Close
-              </ModalClose>
+              <ModalClose onPointerDown={() => setModal(null)}>X</ModalClose>
             </ModalHeader>
 
             <ModalBody>
