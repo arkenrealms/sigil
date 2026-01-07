@@ -10,7 +10,7 @@ export type SideDockTabKey = string;
 export type SideDockTab = {
   key: SideDockTabKey;
   icon: string;
-  label?: string; // optional for later
+  label?: string;
 };
 
 export type SideDockSpec = {
@@ -19,7 +19,7 @@ export type SideDockSpec = {
 
   // Mobile behavior
   mobileHandleIcon: string; // e.g. "/evolution/images/arrow_left.png"
-  mobileCollapsedWidthPx?: number; // handle size
+  mobileCollapsedWidthPx?: number; // handle size (optional)
   mobilePanelWidthPx?: number; // drawer width
 };
 
@@ -57,32 +57,47 @@ const Rail = styled.div`
 
 const RailBtn = styled.div<{ $active?: boolean }>`
   opacity: ${(p) => (p.$active ? "1" : "0.8")};
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 `;
 
 const RailIconWrap = styled.div`
   width: 58px;
   height: 58px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 `;
 
 const RailSpacer = styled.div`
   height: 18px;
 `;
 
-/* --- MOBILE: handle + drawer --- */
+/* ───────────────────────────── */
+/* MOBILE: handle pinned, panel slides */
+/* ───────────────────────────── */
+
 const MobilePos = styled.div`
   position: absolute;
   top: 120px;
   right: 10px;
 
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  pointer-events: auto;
 `;
 
-/* The arrow handle */
-const MobileHandle = styled.div`
-  width: 46px;
-  height: 46px;
+/* The arrow handle (pinned to viewport edge) */
+const MobileHandle = styled.div<{ $size?: number }>`
+  position: absolute;
+  left: 0px;
+  top: 0px;
+
+  width: ${(p) => `${p.$size ?? 46}px`};
+  height: ${(p) => `${p.$size ?? 46}px`};
 
   background-color: rgba(0, 0, 0, 0.55);
   border-width: 2px;
@@ -98,25 +113,31 @@ const MobileHandle = styled.div`
 const HandleIconWrap = styled.div`
   width: 26px;
   height: 26px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 `;
 
-/* Drawer shell */
-const MobilePanel = styled.div<{ $open?: boolean; $w?: number }>`
-  margin-right: 10px;
-  width: ${(p) => (p.$open ? `${p.$w ?? 420}px` : "0px")};
-  height: ${(p) => (p.$open ? "auto" : "0px")};
-  overflow: hidden;
+/* Sliding panel (absolutely positioned so it does NOT push the handle) */
+const MobilePanel = styled.div<{ $w?: number; $right?: number }>`
+  width: ${(p) => `${p.$w ?? 300}px`};
 
   background-color: rgba(0, 0, 0, 0.55);
-  border-width: ${(p) => (p.$open ? "1px" : "0px")};
+  border-width: 1px;
   border-color: rgba(255, 255, 255, 0.14);
   border-radius: 12px;
 
-  padding: ${(p) => (p.$open ? "0px" : "0px")};
+  will-change: translate;
 `;
 
-/* Inside drawer we render (Content + Rail) in a row */
-const MobileInner = styled.div`
+const MobileInner = styled.div<{ $w?: number }>`
+  position: absolute;
+  top: 0px;
+  left: 60px;
+  width: ${(p) => `${p.$w ?? 300}px`};
+
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -164,12 +185,10 @@ export function SideDock(props: {
 
   function handleSelectTab(k: SideDockTabKey) {
     setTab(k);
-    // On mobile, selecting tab should open (so user sees content)
     setMobileOpen(true);
   }
 
-  function renderRail(isMobile: boolean) {
-    // No fragments
+  function renderRail() {
     return (
       <div>
         {tabs.map((t, idx) => (
@@ -189,31 +208,70 @@ export function SideDock(props: {
     );
   }
 
+  const panelW = spec.mobilePanelWidthPx ?? 300;
+  const handleSize = spec.mobileCollapsedWidthPx ?? 46;
+  const gap = -30;
+
+  // Panel sits "to the left of" the handle by (handleSize + gap)
+  const panelRight = handleSize + gap;
+
+  // When closed: push panel to the right by its full width + gap so it's fully offscreen
+  const closedDx = panelW + gap;
+
+  const durationMs = 220;
+
   return (
     <div>
       {/* DESKTOP: always visible */}
       <DesktopOnly>
         <Pos>
           <Content>{renderContent(active)}</Content>
-          <Rail>{renderRail(false)}</Rail>
+          <Rail>{renderRail()}</Rail>
         </Pos>
       </DesktopOnly>
 
-      {/* MOBILE: handle + drawer */}
+      {/* MOBILE: panel slides, handle stays pinned */}
       <MobileOnly>
         <MobilePos>
-          <MobilePanel $open={mobileOpen} $w={spec.mobilePanelWidthPx ?? 420}>
-            <MobileInner>
+          <MobilePanel
+            $w={panelW}
+            $right={panelRight}
+            style={
+              {
+                translate: `${mobileOpen ? 0 : closedDx}px 0px`,
+                transitionProperty: "translate",
+                transitionDuration: `${durationMs}ms`,
+                transitionTimingFunction: "ease-out",
+              } as any
+            }
+          >
+            <MobileHandle
+              $size={handleSize}
+              onPointerDown={() => setMobileOpen((v) => !v)}
+            >
+              <HandleIconWrap
+                style={
+                  {
+                    rotate: mobileOpen ? "180deg" : "0deg",
+                    transitionProperty: "rotate",
+                    transitionDuration: `${durationMs}ms`,
+                    transitionTimingFunction: "ease-out",
+                  } as any
+                }
+              >
+                <Icon
+                  src={spec.mobileHandleIcon}
+                  shadow
+                  width={26}
+                  height={26}
+                />
+              </HandleIconWrap>
+            </MobileHandle>
+            <MobileInner $w={panelW - 60}>
               <MobileContent>{renderContent(active)}</MobileContent>
-              <MobileRail>{renderRail(true)}</MobileRail>
+              <MobileRail>{renderRail()}</MobileRail>
             </MobileInner>
           </MobilePanel>
-
-          <MobileHandle onPointerDown={() => setMobileOpen((v) => !v)}>
-            <HandleIconWrap>
-              <Icon src={spec.mobileHandleIcon} shadow width={60} height={60} />
-            </HandleIconWrap>
-          </MobileHandle>
         </MobilePos>
       </MobileOnly>
     </div>

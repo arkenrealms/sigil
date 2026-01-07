@@ -69,22 +69,20 @@ WHEN IN DOUBT:
 
 ### ui.actions.ActionSlot
 
-<img width="42" height="44" alt="image" src="https://github.com/user-attachments/assets/7c7d9958-5bc7-42f5-93b8-0941daa23e8d" /><img width="42" height="46" alt="image" src="https://github.com/user-attachments/assets/8c558db1-bd39-4b33-b6d7-119c17dbe521" />
-
+<img width="53" height="54" alt="image" src="https://github.com/user-attachments/assets/cb1dff1b-52ef-4296-a493-b300e8eb98cf" />
+<img width="52" height="56" alt="image" src="https://github.com/user-attachments/assets/53334071-62f6-4b4b-b255-fe5683965c71" />
 
 ### ui.actions.ActionBar
 
-<img width="171" height="65" alt="image" src="https://github.com/user-attachments/assets/7b1cf68d-a725-4011-9e78-cc7b9dd7c0d9" />
-
+<img width="209" height="56" alt="image" src="https://github.com/user-attachments/assets/a66b7468-9ae7-4f5c-9585-8535d96fad3a" />
 
 ### ui.actions.ActionGrid
 
-<img width="216" height="222" alt="image" src="https://github.com/user-attachments/assets/0419cc4b-c939-4021-a8e7-63d15649b1a0" />
-
+<img width="278" height="278" alt="image" src="https://github.com/user-attachments/assets/473e29c8-b5ac-41c9-b00d-dd19ba70575b" />
 
 ### ui.actions.ActionBarSwiper
 
-<img width="171" height="65" alt="image" src="https://github.com/user-attachments/assets/7b1cf68d-a725-4011-9e78-cc7b9dd7c0d9" />
+<img width="221" height="72" alt="image" src="https://github.com/user-attachments/assets/18194df0-c497-4713-b35c-dca632f2ebbb" />
 
 ### ui.actions.ActionHub
 
@@ -125,4 +123,5 @@ Expanded:
 The most obtuse one that kept coming up is this error, which seems to be when unity finds an attribute like `filter` but fails to find the option, ie. if it has `filter: opacity(1)` which finds `opacity` but can't find `none` for `filter: none` . Their internal rendering must be so complex that in some situations it even silently fails to continue rendering.
 
 `ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.`
+
 

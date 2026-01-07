@@ -359,7 +359,7 @@ export default function () {
       ],
       initialTabKey: "game",
       mobileHandleIcon: "/evolution/images/arrow_left.png",
-      mobilePanelWidthPx: 420,
+      mobilePanelWidthPx: 390,
     }),
     []
   );
