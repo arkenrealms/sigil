@@ -7,7 +7,13 @@ import { ActionGrid } from "../../actions/components/ActionGrid";
 import actions from "../../../data/actions";
 import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
+import { Icon } from "../../core/components/Icon";
 import { useLeaderboard } from "../state/useLeaderboard";
+import {
+  loadPrefsJson,
+  savePrefsJson,
+  clearPrefs,
+} from "../../core/state/persist";
 import UpgradeGrid from "../components/UpgradeGrid";
 import { PartyDockContent } from "./InGame/PartyDockContent";
 import { QuestDockContent } from "./InGame/QuestDockContent";
@@ -32,85 +38,16 @@ const emitLoad = () =>
 const emitJoin = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
 
-const PartyPanel = styled.div`
-  width: 100%;
-  padding: 5px;
+type PersistedInGame = {
+  roundId: string;
+  uiState: UiState;
+  gameInfo: GameInfo;
+  serverTimerSec: number | null;
+  reward: Reward | null;
+};
 
-  border-radius: 10px;
-  background-color: rgba(20, 40, 90, 0.9);
-`;
-
-const PartyTabs = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-
-  border-radius: 10px;
-  padding: 6px;
-
-  /* “blue gradient” approximation (USS-safe) */
-  background-color: rgba(35, 90, 185, 0.95);
-
-  /* optional: slight tint filter if your UITK supports it well */
-  /* filter: tint(rgba(40, 140, 255, 0.35)); */
-`;
-
-const PartyTab = styled.div<{ $active?: boolean }>`
-  flex-grow: 1;
-  flex-basis: 0px;
-
-  padding: 8px 0px;
-  border-radius: 8px;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  background-color: ${(p) =>
-    p.$active ? "rgba(0, 0, 0, 0.22)" : "rgba(255, 255, 255, 0.08)"};
-
-  border-width: ${(p) => (p.$active ? "1px" : "0px")};
-  border-color: rgba(255, 255, 255, 0.22);
-`;
-
-const PartyBody = styled.div`
-  margin-top: 6px;
-  width: 100%;
-
-  border-radius: 10px;
-  padding: 10px;
-
-  background-color: rgba(10, 25, 70, 0.7);
-
-  /* scrollable content */
-  max-height: 260px;
-  overflow: scroll;
-`;
-
-const PartyMemberRow = styled.div`
-  width: 100%;
-  border-radius: 10px;
-  padding: 10px;
-
-  background-color: rgba(255, 255, 255, 0.2);
-
-  margin-bottom: 8px;
-`;
-
-const PartyMemberRowLast = styled(PartyMemberRow)`
-  margin-bottom: 0px;
-`;
-
-const PartyMemberTop = styled.div`
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-const PartyMemberMeta = styled.div`
-  margin-top: 4px;
-`;
+const PREF_KEY = "sigil.ingame.cache.v1";
+const PREF_TTL_MS = 300_000;
 
 const StatusOverlay = styled.div`
   position: absolute;
@@ -145,8 +82,6 @@ const BottomCenter = styled.div`
   left: 50%;
   bottom: 50px;
   translate: -50% 0;
-
-  /* must explicitly receive pointer events */
 `;
 
 const ButtonFrame = styled.div`
@@ -224,17 +159,6 @@ const Line = styled.div<{ $last?: boolean }>`
   margin-bottom: ${(p) => (p.$last ? "0px" : "4px")};
 `;
 
-const SideTitle = styled.div`
-  margin-bottom: 10px;
-`;
-
-/** Kept for non-Text legacy usage */
-const Emph = styled.div`
-  display: inline;
-  color: rgb(214, 200, 78);
-  -unity-font-style: bold;
-`;
-
 /** IMPORTANT: ModalShade is now relative to the full-screen Wrapper, NOT scaled */
 const ModalShade = styled.div`
   position: absolute; /* could be fixed if your UITK supports it */
@@ -300,6 +224,35 @@ const GridPos = styled.div`
   right: 30px;
 `;
 
+/** Reward (top-center) */
+const RewardAnchor = styled.div`
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  translate: -50% 0;
+
+  /* keep it compact + clickable later */
+`;
+
+const RewardCardOuter = styled.div`
+  // border-radius: 6px;
+  // padding: 1px;
+  // border-color: rgb(214, 200, 78);
+`;
+
+const RewardCard = styled.div`
+  border-radius: 6px;
+  padding: 10px 14px;
+
+  background-color: rgba(0, 0, 0, 0.7);
+  border-width: 0px;
+  border-color: rgb(214, 200, 78);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
@@ -343,6 +296,16 @@ type Upgrade = {
   src?: string;
 };
 
+type Reward = {
+  id: string;
+  rewardItemType?: string;
+  rewardItemName: string;
+  quantity: string;
+  position?: { x: string; y: string };
+  shortDescription?: string;
+  longDescription?: string;
+};
+
 function parseRoundInfo(payload: string): GameInfo {
   const parts = (payload ?? "").split(":");
   if (parts.length < 10) return {};
@@ -353,8 +316,8 @@ function parseRoundInfo(payload: string): GameInfo {
   const gameMode = parts[22];
   const rewardItemAmount = parts[45];
   const rewardItemName = parts[46];
-  const rewardWinnerAmount = parts[48];
-  const rewardWinnerName = parts[49];
+  const rewardWinnerAmount = parts[47];
+  const rewardWinnerName = parts[48];
 
   const timerSec = Number(timer);
   return {
@@ -375,9 +338,29 @@ function formatMMSS(totalSec?: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function rewardDescriptions(name: string) {
+  const n = (name ?? "").toLowerCase();
+  if (n === "harold") {
+    return {
+      shortDescription: "HAROLD token is based on the Hide The Pain meme.",
+      longDescription:
+        "It was rugged by the original creator and is has been adopted by the community and a very big whale.",
+    };
+  }
+  if (n === "pepe") {
+    return {
+      shortDescription: "Pepe is a well known meme.",
+      longDescription: "Pepe stuff",
+    };
+  }
+  return {
+    shortDescription: "DOGE is a shiba inu.",
+    longDescription: "Doge stuff",
+  };
+}
+
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
-  const [partyTab, setPartyTab] = useState<"party" | "manage">("party");
 
   // state machine (from old web impl)
   const state = useRef<UiState>("none");
@@ -398,8 +381,81 @@ export default function () {
   const [gameInfo, setGameInfo] = useState<GameInfo>({});
   const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
 
+  // Reward popup driven by onSpawnReward / onUpdateReward
+  const [reward, setReward] = useState<Reward | null>(null);
+
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
+
+  // ✅ round id (derived from onSetRoundInfo)
+  const [roundId, setRoundId] = useState<string>("");
+
+  // ✅ keep cached payload around until we can validate with roundId
+  const cachedRef = useRef<PersistedInGame | null>(null);
+  const hasHydratedRef = useRef(false);
+
+  // 1) Read cache once
+  useEffect(() => {
+    const cached = loadPrefsJson<PersistedInGame>(PREF_KEY, PREF_TTL_MS);
+    if (!cached) return;
+
+    cachedRef.current = cached;
+
+    // 🔥 FULL optimistic restore
+    state.current = cached.uiState;
+    setUiState(cached.uiState);
+    setGameInfo(cached.gameInfo || {});
+    setServerTimerSec(
+      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
+    );
+    setReward(cached.reward ?? null);
+
+    hasHydratedRef.current = true;
+  }, []);
+
+  // 2) Once we learn the *current* roundId, validate + hydrate fully (once)
+  useEffect(() => {
+    if (!roundId) return;
+    if (hasHydratedRef.current) return;
+
+    const cached = cachedRef.current;
+    if (!cached) {
+      hasHydratedRef.current = true;
+      return;
+    }
+
+    // ✅ Gate restore by roundId match
+    if (cached.roundId !== roundId) {
+      // stale cache from another round
+      clearPrefs(PREF_KEY);
+      hasHydratedRef.current = true;
+      return;
+    }
+
+    // Restore fields
+    state.current = cached.uiState;
+    setUiState(cached.uiState);
+    setGameInfo(cached.gameInfo || {});
+    setServerTimerSec(
+      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
+    );
+    setReward(cached.reward ?? null);
+
+    hasHydratedRef.current = true;
+  }, [roundId]);
+
+  // 3) Persist (only when we have a roundId)
+  useEffect(() => {
+    if (!roundId) return;
+    const payload: PersistedInGame = {
+      roundId,
+      uiState,
+      gameInfo,
+      serverTimerSec,
+      reward,
+    };
+    savePrefsJson(PREF_KEY, payload);
+  }, [roundId, uiState, gameInfo, serverTimerSec, reward]);
 
   useEffect(() => {
     const bridge = CS?.Arken?.Bridge?.Instance;
@@ -434,18 +490,60 @@ export default function () {
 
       if (eventName === "onDisconnected") {
         setState("disconnected");
+        setReward(null);
+        clearPrefs(PREF_KEY);
+        return;
+      }
+
+      // ---- reward events (old web UI parity) ----
+      if (eventName === "onSpawnReward") {
+        // old format: id:type:name:qty:x:y
+        const data = (args ?? "").split(":");
+        const id = data[0] ?? "";
+        const rewardItemType = data[1] ?? "";
+        const rewardItemName = data[2] ?? "";
+        const quantity = data[3] ?? "";
+        const x = data[4] ?? "";
+        const y = data[5] ?? "";
+
+        const desc = rewardDescriptions(rewardItemName);
+
+        setReward({
+          id,
+          rewardItemType,
+          rewardItemName,
+          quantity,
+          position: { x, y },
+          ...desc,
+        });
+        return;
+      }
+
+      if (eventName === "onUpdateReward") {
+        // old web UI: clear reward when updated/claimed
+        setReward(null);
         return;
       }
 
       // ---- data events ----
       if (eventName === "onSetRoundInfo") {
-        const info = parseRoundInfo(args);
+        // IMPORTANT: derive a stable roundId from payload
+        // If your payload includes a real round id field, use that.
+        // If not, fall back to hashing or using timer reset + something stable.
+        //
+        // Best: server includes roundId at a known index. Example assumes parts[1].
+        const parts = (args ?? "").split(":");
 
+        // 🔧 Replace this with the actual index from your server payload
+        // Example: if parts[1] is roundId:
+        const nextRoundId = parts[22] ?? "";
+
+        if (nextRoundId) setRoundId(nextRoundId);
+
+        const info = parseRoundInfo(args);
         setGameInfo((prev) => ({ ...prev, ...info }));
 
-        if (typeof info.timerSec === "number") {
-          setServerTimerSec(info.timerSec); // authoritative reset
-        }
+        if (typeof info.timerSec === "number") setServerTimerSec(info.timerSec);
         return;
       }
 
@@ -497,9 +595,7 @@ export default function () {
 
     if (typeof bridge.add_OnServerEvent === "function") {
       bridge.add_OnServerEvent(onServerEvent);
-      return () => {
-        bridge.remove_OnServerEvent?.(onServerEvent);
-      };
+      return () => bridge.remove_OnServerEvent?.(onServerEvent);
     }
 
     console.log(
@@ -574,70 +670,6 @@ export default function () {
     [menuItems]
   );
 
-  const partyMembers = useMemo(
-    () => [
-      {
-        name: "Zoey",
-        level: 12,
-        power: 12340,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-      {
-        name: "Loffarn",
-        level: 10,
-        power: 9930,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-      {
-        name: "Kira",
-        level: 9,
-        power: 8811,
-        area: "Mage Isles",
-        channel: "CH 2",
-      },
-      {
-        name: "King",
-        level: 1,
-        power: 111,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-      {
-        name: "Asmon",
-        level: 100,
-        power: 100000,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-      {
-        name: "A",
-        level: 1,
-        power: 1,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-      {
-        name: "B",
-        level: 1,
-        power: 1,
-        area: "Mage Isles",
-        channel: "CH 1",
-      },
-    ],
-    []
-  );
-
-  const quests = useMemo(
-    () => [
-      { title: "Win 1 round", progress: "0 / 1" },
-      { title: "Collect 250 sprites", progress: "88 / 250" },
-      { title: "Open 1 chest", progress: "0 / 1" },
-    ],
-    []
-  );
-
   function openModal(k: string) {
     setModal(k as ModalKey);
   }
@@ -683,6 +715,28 @@ export default function () {
           <ActionHub spec={menuSpec} onSelect={openModal} />
 
           <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
+
+          {/* ✅ Reward popup (top-center)
+              IMPORTANT: render this LAST inside Scaled so it draws on top (no z-index in USS). */}
+          {reward ? (
+            <RewardAnchor>
+              {/* scale with UI zoom (old web used "zoom") */}
+              <div style={{ scale: `${scale} ${scale}` }}>
+                <RewardCardOuter>
+                  <RewardCard>
+                    <Icon
+                      src={`/images/rewards/${reward.rewardItemName}.png`}
+                      width={40}
+                      height={40}
+                    />
+                    {/* <Text size={18} bold color="#fff">
+                      {reward.quantity} {reward.rewardItemName.toUpperCase()}
+                    </Text> */}
+                  </RewardCard>
+                </RewardCardOuter>
+              </div>
+            </RewardAnchor>
+          ) : null}
         </Scaled>
       ) : null}
 
