@@ -125,3 +125,12 @@ The most obtuse one that kept coming up is this error, which seems to be when un
 `ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.`
 
 
+### Networking
+
+**JS side**
+bind on server events: https://github.com/arkenrealms/sigil/blob/main/ui/game/views/InGame.tsx#L414-L419
+fire UI events: https://github.com/arkenrealms/sigil/blob/main/ui/game/views/InGame.tsx#L23-L30
+
+**C# side**
+handle server events: https://github.com/arkenrealms/sigil/blob/main/deps/Bridge.cs.txt#L54-L56
+handle UI events: https://github.com/arkenrealms/sigil/blob/main/deps/Bridge.cs.txt#L62-L113

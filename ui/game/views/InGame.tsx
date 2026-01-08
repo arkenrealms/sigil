@@ -9,6 +9,9 @@ import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
 import { useLeaderboard } from "../state/useLeaderboard";
 import UpgradeGrid from "../components/UpgradeGrid";
+import { PartyDockContent } from "./InGame/PartyDockContent";
+import { QuestDockContent } from "./InGame/QuestDockContent";
+import { GameDockContent } from "./InGame/GameDockContent";
 import { PickingMode } from "UnityEngine/UIElements";
 import {
   ActionHub,
@@ -28,6 +31,86 @@ const emitLoad = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
 const emitJoin = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
+
+const PartyPanel = styled.div`
+  width: 100%;
+  padding: 5px;
+
+  border-radius: 10px;
+  background-color: rgba(20, 40, 90, 0.9);
+`;
+
+const PartyTabs = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+
+  border-radius: 10px;
+  padding: 6px;
+
+  /* “blue gradient” approximation (USS-safe) */
+  background-color: rgba(35, 90, 185, 0.95);
+
+  /* optional: slight tint filter if your UITK supports it well */
+  /* filter: tint(rgba(40, 140, 255, 0.35)); */
+`;
+
+const PartyTab = styled.div<{ $active?: boolean }>`
+  flex-grow: 1;
+  flex-basis: 0px;
+
+  padding: 8px 0px;
+  border-radius: 8px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background-color: ${(p) =>
+    p.$active ? "rgba(0, 0, 0, 0.22)" : "rgba(255, 255, 255, 0.08)"};
+
+  border-width: ${(p) => (p.$active ? "1px" : "0px")};
+  border-color: rgba(255, 255, 255, 0.22);
+`;
+
+const PartyBody = styled.div`
+  margin-top: 6px;
+  width: 100%;
+
+  border-radius: 10px;
+  padding: 10px;
+
+  background-color: rgba(10, 25, 70, 0.7);
+
+  /* scrollable content */
+  max-height: 260px;
+  overflow: scroll;
+`;
+
+const PartyMemberRow = styled.div`
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px;
+
+  background-color: rgba(255, 255, 255, 0.2);
+
+  margin-bottom: 8px;
+`;
+
+const PartyMemberRowLast = styled(PartyMemberRow)`
+  margin-bottom: 0px;
+`;
+
+const PartyMemberTop = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const PartyMemberMeta = styled.div`
+  margin-top: 4px;
+`;
 
 const StatusOverlay = styled.div`
   position: absolute;
@@ -294,6 +377,7 @@ function formatMMSS(totalSec?: number) {
 
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
+  const [partyTab, setPartyTab] = useState<"party" | "manage">("party");
 
   // state machine (from old web impl)
   const state = useRef<UiState>("none");
@@ -513,6 +597,34 @@ export default function () {
         area: "Mage Isles",
         channel: "CH 2",
       },
+      {
+        name: "King",
+        level: 1,
+        power: 111,
+        area: "Mage Isles",
+        channel: "CH 1",
+      },
+      {
+        name: "Asmon",
+        level: 100,
+        power: 100000,
+        area: "Mage Isles",
+        channel: "CH 1",
+      },
+      {
+        name: "A",
+        level: 1,
+        power: 1,
+        area: "Mage Isles",
+        channel: "CH 1",
+      },
+      {
+        name: "B",
+        level: 1,
+        power: 1,
+        area: "Mage Isles",
+        channel: "CH 1",
+      },
     ],
     []
   );
@@ -545,94 +657,9 @@ export default function () {
   );
 
   function renderSideDockContent(active: SideDockTabKey) {
-    if (active === "party") {
-      return (
-        <div>
-          <SideTitle>PARTY</SideTitle>
-          {partyMembers.map((m, idx) => (
-            <div
-              style={{
-                marginBottom: idx === partyMembers.length - 1 ? "0px" : "10px",
-              }}
-            >
-              <Lines>
-                <Line>
-                  <Text shadow size={18} color="#fff">
-                    {m.name} (Lv {m.level})
-                  </Text>
-                </Line>
-                <Line>
-                  <Text shadow size={18} color="#fff">
-                    Power: {m.power}
-                  </Text>
-                </Line>
-                <Line $last={true}>
-                  <Text shadow size={18} color="#fff">
-                    {m.area} • {m.channel}
-                  </Text>
-                </Line>
-              </Lines>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (active === "quest") {
-      return (
-        <div>
-          <SideTitle>QUESTS</SideTitle>
-          {quests.map((q, idx) => (
-            <div
-              style={{
-                marginBottom: idx === quests.length - 1 ? "0px" : "10px",
-              }}
-            >
-              <Lines>
-                <Line>
-                  <Text shadow size={18} color="#fff">
-                    {q.title}
-                  </Text>
-                </Line>
-                <Line $last={true}>
-                  <Text shadow size={18} color="#fff">
-                    Progress: {q.progress}
-                  </Text>
-                </Line>
-              </Lines>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    return (
-      <div>
-        <SideTitle>
-          <Text shadow size={18} color="#fff">
-            GAME MODE
-          </Text>
-        </SideTitle>
-
-        {!gameInfo?.gameMode ? (
-          <Lines>
-            <Line $last={true}>
-              <Text shadow size={18} color="#fff">
-                Loading...
-              </Text>
-            </Line>
-          </Lines>
-        ) : (
-          <Lines>
-            <Line $last={true}>
-              <Text shadow size={22} bold color="rgb(214, 200, 78)">
-                {gameInfo.gameMode.toUpperCase()}
-              </Text>
-            </Line>
-          </Lines>
-        )}
-      </div>
-    );
+    if (active === "party") return <PartyDockContent />;
+    if (active === "quest") return <QuestDockContent />;
+    return <GameDockContent gameMode={gameInfo?.gameMode} />;
   }
 
   return (
@@ -694,7 +721,7 @@ export default function () {
             <ButtonLike
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={() => emitLoad()}
+              onClick={emitLoad}
             >
               Revive
             </ButtonLike>
@@ -708,7 +735,7 @@ export default function () {
             <ButtonLike
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={() => emitJoin()}
+              onClick={emitJoin}
             >
               Reconnect
             </ButtonLike>

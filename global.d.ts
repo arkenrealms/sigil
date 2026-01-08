@@ -24,6 +24,8 @@ declare global {
 
       namespace Web {
         namespace WebCommunicator {
+          const Instance: any;
+
           function EnsureOneJsAsset(remoteUrl: string, assetRel: string): void;
           function GetOneJsFullPath(assetRel: string): string;
           function PostJson(json: string): void;
