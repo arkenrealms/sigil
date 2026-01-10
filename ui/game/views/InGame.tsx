@@ -1,5 +1,5 @@
 // sigil/ui/game/views/InGame.tsx
-import { h } from "preact";
+import { h, Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import styled from "../../../util/styled";
 import { ActionBarSwiper } from "../../actions/components/ActionBarSwiper";
@@ -37,10 +37,12 @@ const emitLoad = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
 const emitJoin = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
+const showLogin = () => CS?.Arken?.Bridge?.Instance?.ShowWeb();
 
 type PersistedInGame = {
   roundId: string;
-  uiState: UiState;
+  serverState: ServerState;
+  webState: WebState;
   gameInfo: GameInfo;
   serverTimerSec: number | null;
   reward: Reward | null;
@@ -77,6 +79,13 @@ const StatusCard = styled.div`
   align-items: center;
 `;
 
+const BottomLeft = styled.div`
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  translate: 0 0;
+`;
+
 const BottomCenter = styled.div`
   position: absolute;
   left: 50%;
@@ -92,7 +101,7 @@ const ButtonFrame = styled.div`
   padding: 10px;
 `;
 
-const ButtonLike = styled.div`
+const Button = styled.div`
   width: 150px;
   padding: 10px 12px;
 
@@ -218,6 +227,12 @@ const BarPos = styled.div`
   translate: -50% 0;
 `;
 
+const WebStatePos = styled.div`
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+`;
+
 const GridPos = styled.div`
   position: absolute;
   bottom: 30px;
@@ -244,7 +259,7 @@ const RewardCard = styled.div`
   border-radius: 6px;
   padding: 10px 14px;
 
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   border-width: 0px;
   border-color: rgb(214, 200, 78);
 
@@ -280,13 +295,15 @@ type GameInfo = {
   gameMode?: string;
 };
 
-type UiState =
+type ServerState =
   | "none"
   | "loading"
   | "joining"
   | "joined"
   | "spectating"
   | "disconnected";
+
+type WebState = "none" | "initializing" | "initialized" | "authorized";
 
 type Upgrade = {
   id: string;
@@ -362,12 +379,18 @@ function rewardDescriptions(name: string) {
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
 
-  // state machine (from old web impl)
-  const state = useRef<UiState>("none");
-  const [uiState, setUiState] = useState<UiState>("none");
-  function setState(next: UiState) {
-    state.current = next;
-    setUiState(next);
+  const serverState = useRef<ServerState>("none");
+  const [_serverState, _setServerState] = useState<ServerState>("none");
+  function setServerState(next: ServerState) {
+    serverState.current = next;
+    _setServerState(next);
+  }
+
+  const webState = useRef<WebState>("none");
+  const [_webState, _setWebState] = useState<WebState>("none");
+  function setWebState(next: WebState) {
+    webState.current = next;
+    _setWebState(next);
   }
 
   // constrain zoom to 50%..150% no matter what storage returns
@@ -393,18 +416,22 @@ export default function () {
   // ✅ keep cached payload around until we can validate with roundId
   const cachedRef = useRef<PersistedInGame | null>(null);
   const hasHydratedRef = useRef(false);
+  const [profile, setProfile] = useState(null);
 
-  // 1) Read cache once
   useEffect(() => {
     const cached = loadPrefsJson<PersistedInGame>(PREF_KEY, PREF_TTL_MS);
     if (!cached) return;
 
     cachedRef.current = cached;
 
-    // 🔥 FULL optimistic restore
-    state.current = cached.uiState;
-    setUiState(cached.uiState);
+    serverState.current = cached.serverState;
+    setServerState(cached.serverState);
+
+    webState.current = cached.webState;
+    setWebState(cached.webState);
+
     setGameInfo(cached.gameInfo || {});
+
     setServerTimerSec(
       typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
     );
@@ -433,9 +460,14 @@ export default function () {
     }
 
     // Restore fields
-    state.current = cached.uiState;
-    setUiState(cached.uiState);
+    serverState.current = cached.serverState;
+    setServerState(cached.serverState);
+
+    webState.current = cached.webState;
+    setWebState(cached.webState);
+
     setGameInfo(cached.gameInfo || {});
+
     setServerTimerSec(
       typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
     );
@@ -449,47 +481,46 @@ export default function () {
     if (!roundId) return;
     const payload: PersistedInGame = {
       roundId,
-      uiState,
+      serverState: _serverState,
+      webState: _webState,
       gameInfo,
       serverTimerSec,
       reward,
     };
     savePrefsJson(PREF_KEY, payload);
-  }, [roundId, uiState, gameInfo, serverTimerSec, reward]);
+  }, [roundId, _serverState, _webState, gameInfo, serverTimerSec, reward]);
 
   useEffect(() => {
     const bridge = CS?.Arken?.Bridge?.Instance;
     if (!bridge) {
-      console.log(
-        "[OneJS] NetworkManager.Instance not found; events not bound."
-      );
+      console.log("[OneJS] Bridge.Instance not found; events not bound.");
       return;
     }
 
     const onServerEvent = (eventName: string, args: string) => {
-      // ---- state transitions ----
+      // ---- serverState transitions ----
       if (eventName === "onLoaded") {
-        setState("loading");
+        setServerState("loading");
         return;
       }
 
       if (eventName === "onLogin") {
-        setState("joining");
+        setServerState("joining");
         return;
       }
 
       if (eventName === "onJoinGame") {
-        setState("joined");
+        setServerState("joined");
         return;
       }
 
       if (eventName === "onSpectate" || eventName === "onGameOver") {
-        setState("spectating");
+        setServerState("spectating");
         return;
       }
 
       if (eventName === "onDisconnected") {
-        setState("disconnected");
+        setServerState("disconnected");
         setReward(null);
         clearPrefs(PREF_KEY);
         return;
@@ -604,6 +635,40 @@ export default function () {
     return;
   }, []);
 
+  useEffect(() => {
+    const bridge = CS?.Arken?.Bridge?.Instance;
+    if (!bridge) {
+      console.log("[OneJS] Bridge.Instance not found; events not bound.");
+      return;
+    }
+
+    const onWebEvent = (eventName: string, args: string) => {
+      if (eventName === "onInitializing") {
+        setWebState("initializing");
+        return;
+      }
+      if (eventName === "onInitialized") {
+        setWebState("initialized");
+        return;
+      }
+      if (eventName === "onAuthorized") {
+        const params = JSON.parse(args);
+        setWebState("authorized");
+        setProfile(params);
+      }
+    };
+
+    if (typeof bridge.add_OnWebEvent === "function") {
+      bridge.add_OnWebEvent(onWebEvent);
+      return () => bridge.remove_OnWebEvent?.(onWebEvent);
+    }
+
+    console.log(
+      "[OneJS] Warning: add_OnWebEvent missing; server events not bound."
+    );
+    return;
+  }, []);
+
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
   useEffect(() => {
@@ -670,8 +735,13 @@ export default function () {
     [menuItems]
   );
 
-  function openModal(k: string) {
-    setModal(k as ModalKey);
+  function onSelectAction(k: string) {
+    if (k === "Inventory") {
+      CS.Arken.Web.WebCommunicator.Instance.ShowWeb();
+      // CS.Arken.Web.WebCommunicator.Instance._prefab.gameObject.SetActive(true);
+    } else {
+      setModal(k as ModalKey);
+    }
   }
 
   const sideDockSpec: SideDockSpec = useMemo(
@@ -693,10 +763,13 @@ export default function () {
     if (active === "quest") return <QuestDockContent />;
     return <GameDockContent gameMode={gameInfo?.gameMode} />;
   }
+  const auth = {
+    username: null,
+  };
 
   return (
     <Wrapper>
-      {state.current === "joined" ? (
+      {serverState.current === "joined" ? (
         <Scaled $scale={scale}>
           <BarPos>
             <ActionBarSwiper
@@ -712,7 +785,7 @@ export default function () {
 
           <Hud spec={hudSpec} />
 
-          <ActionHub spec={menuSpec} onSelect={openModal} />
+          <ActionHub spec={menuSpec} onSelect={onSelectAction} />
 
           <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
 
@@ -740,7 +813,7 @@ export default function () {
         </Scaled>
       ) : null}
 
-      {state.current === "spectating" && isUpgradeOpen ? (
+      {serverState.current === "spectating" && isUpgradeOpen ? (
         <UpgradeOverlay picking-mode={PickingMode.Position}>
           <UpgradeOverlayInner picking-mode={PickingMode.Position}>
             <UpgradeGrid
@@ -757,7 +830,7 @@ export default function () {
         </UpgradeOverlay>
       ) : null}
 
-      {state.current === "none" || state.current === "loading" ? (
+      {serverState.current === "none" || serverState.current === "loading" ? (
         <StatusOverlay picking-mode={PickingMode.Position}>
           <BottomCenter picking-mode={PickingMode.Position}>
             <StatusCard picking-mode={PickingMode.Position}>
@@ -769,30 +842,69 @@ export default function () {
         </StatusOverlay>
       ) : null}
 
-      {state.current === "spectating" ? (
-        <BottomCenter picking-mode={PickingMode.Position}>
-          <ButtonFrame picking-mode={PickingMode.Position}>
-            <ButtonLike
+      <BottomLeft picking-mode={PickingMode.Position}>
+        <ButtonFrame picking-mode={PickingMode.Position}>
+          {serverState.current === "none" ? (
+            <Text size={22} bold color="rgb(214, 200, 78)">
+              Connecting to Arken Web
+            </Text>
+          ) : serverState.current === "loading" ? (
+            <Text size={22} bold color="rgb(214, 200, 78)">
+              Connecting to Arken Web
+            </Text>
+          ) : webState.current === "none" ||
+            webState.current === "initializing" ? (
+            <Text size={22} bold color="rgb(214, 200, 78)">
+              Connecting to Arken Web
+            </Text>
+          ) : !profile?.name ? (
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={showLogin}
+            >
+              Login
+            </Button>
+          ) : profile?.name && serverState.current === "spectating" ? (
+            <Fragment>
+              <Text
+                size={22}
+                bold
+                color="rgb(214, 200, 78)"
+                style={{ padding: 10 }}
+              >
+                {profile.name}
+              </Text>
+              <Button
+                picking-mode={PickingMode.Position}
+                onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+                onClick={emitLoad}
+              >
+                Revive
+              </Button>
+            </Fragment>
+          ) : (
+            <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
               onClick={emitLoad}
             >
-              Revive
-            </ButtonLike>
-          </ButtonFrame>
-        </BottomCenter>
-      ) : null}
+              Sign Out
+            </Button>
+          )}
+        </ButtonFrame>
+      </BottomLeft>
 
-      {state.current === "disconnected" ? (
+      {serverState.current === "disconnected" ? (
         <BottomCenter picking-mode={PickingMode.Position}>
           <ButtonFrame picking-mode={PickingMode.Position}>
-            <ButtonLike
+            <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
               onClick={emitJoin}
             >
               Reconnect
-            </ButtonLike>
+            </Button>
           </ButtonFrame>
         </BottomCenter>
       ) : null}
@@ -811,7 +923,7 @@ export default function () {
             </ModalHeader>
 
             <ModalBody>
-              {modal === "Market" ? (
+              {modal === "Settings" ? (
                 <SettingsPanel />
               ) : (
                 <Lines>

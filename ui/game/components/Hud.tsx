@@ -15,8 +15,10 @@ const Line = styled.div<{ $last?: boolean }>`
 /* --- HUD shell --- */
 const HudPos = styled.div`
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 15px;
+  left: 15px;
+  scale: 1.3;
+  transform-origin: 0px 0px;
 `;
 
 const HudPanel = styled.div`
@@ -169,10 +171,10 @@ export function Hud(props: { spec: HudSpec }) {
             <TimeLabel>ROUND TIME LEFT</TimeLabel>
           </HudTopLeft>
 
-          <HudTopRight>
+          {/* <HudTopRight>
             <RewardText>{spec.rewardText}</RewardText>
             <RewardLabel>ROUND REWARD</RewardLabel>
-          </HudTopRight>
+          </HudTopRight> */}
         </HudTopRow>
 
         <Divider />

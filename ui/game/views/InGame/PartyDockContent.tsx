@@ -126,7 +126,7 @@ const PanelBody = styled.div`
   width: 100%;
 
   border-radius: 10px;
-  padding: 10px;
+  padding: 12px;
 
   background-color: rgba(10, 25, 70, 0.7);
 

@@ -175,11 +175,6 @@ export function ActionHub(props: {
       return;
     }
 
-    if (key === "Inventory") {
-      // CS.Arken.Web.WebCommunicator.Instance._prefab.Visible = false;
-      CS.Arken.Web.WebCommunicator.Instance._prefab.gameObject.SetActive(true);
-    }
-
     // Normal menu item opens modal
     onSelect(key);
 
