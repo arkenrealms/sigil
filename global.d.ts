@@ -15,7 +15,7 @@ declare global {
           function remove_OnWebEvent(handler: function): void;
           function Emit(type: string, payloadJson: string): void;
           function EmitString(type: string, payload: string): void;
-          function ShowWeb(): void;
+          function ShowWeb(path?: string): void;
           function HideWeb(): void;
         }
       }

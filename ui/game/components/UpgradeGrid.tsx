@@ -109,7 +109,7 @@ const IconWrap = styled.div`
   border-radius: 6px;
   border-width: 3px;
   border-color: rgba(0, 0, 0, 1);
-  background-color: rgba(0, 0, 0, 1);
+  background-color: #11111d;
 `;
 
 const Title = styled.div`

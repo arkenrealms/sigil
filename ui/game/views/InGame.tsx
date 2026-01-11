@@ -37,7 +37,9 @@ const emitLoad = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
 const emitJoin = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
-const showLogin = () => CS?.Arken?.Bridge?.Instance?.ShowWeb();
+const showLogin = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/login");
+const showInbox = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/inbox");
+const showSkills = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/skills");
 
 type PersistedInGame = {
   roundId: string;
@@ -68,9 +70,9 @@ const StatusOverlay = styled.div`
 `;
 
 const StatusCard = styled.div`
-  background-color: rgba(0, 0, 0, 0.92);
+  background-color: #11111d;
   border-width: 2px;
-  border-color: rgb(214, 200, 78);
+  border-color: #b59766;
   border-radius: 12px;
   padding: 14px 18px;
 
@@ -82,21 +84,58 @@ const StatusCard = styled.div`
 const BottomLeft = styled.div`
   position: absolute;
   left: 20px;
-  bottom: 20px;
+  bottom: 120px;
   translate: 0 0;
+`;
+
+const BottomRight = styled.div`
+  position: absolute;
+  right: 20px;
+  bottom: 120px;
+  translate: 0 0;
+`;
+
+const BottomDock = styled.div`
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: -10px;
+
+  display: flex;
+  justify-content: center;
+
+  /* keeps it above anything behind it */
+  pointer-events: auto;
+`;
+
+const Bottom = styled.div`
+  width: 100%;
+  max-width: 600px;
+  height: 120px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+
+  border-width: 2px;
+  border-color: #b59766;
+  border-radius: 15px;
+  background-color: #11111d;
+
+  overflow: hidden; /* makes rounded corners clip children nicely */
 `;
 
 const BottomCenter = styled.div`
   position: absolute;
   left: 50%;
-  bottom: 50px;
+  bottom: 150px;
   translate: -50% 0;
 `;
 
 const ButtonFrame = styled.div`
-  background-color: rgba(0, 0, 0, 0.92);
+  background-color: #11111d;
   border-width: 2px;
-  border-color: rgb(214, 200, 78);
+  border-color: #b59766;
   border-radius: 12px;
   padding: 10px;
 `;
@@ -135,7 +174,7 @@ const UpgradeOverlay = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: rgba(0, 0, 0, 0.55);
+  background-color: rgba(0, 0, 0, 0.65);
 `;
 
 const UpgradeOverlayInner = styled.div`
@@ -186,9 +225,9 @@ const ModalCard = styled.div`
   translate: -50% -50%;
   width: 560px;
 
-  background-color: rgba(0, 0, 0, 0.92);
+  background-color: #11111d;
   border-width: 2px;
-  border-color: rgb(214, 200, 78);
+  border-color: #b59766;
   border-radius: 12px;
   padding: 14px;
 `;
@@ -204,7 +243,7 @@ const ModalHeader = styled.div`
 const ModalTitle = styled.div`
   font-size: 16px;
   -unity-font-style: bold;
-  color: rgb(214, 200, 78);
+  color: #b59766;
 `;
 
 const ModalClose = styled.div`
@@ -220,9 +259,9 @@ const ModalBody = styled.div`
   font-size: 13px;
 `;
 
-const BarPos = styled.div`
+const ActionBarPos = styled.div`
   position: absolute;
-  bottom: 5px;
+  bottom: 105px;
   left: 50%;
   translate: -50% 0;
 `;
@@ -252,7 +291,7 @@ const RewardAnchor = styled.div`
 const RewardCardOuter = styled.div`
   // border-radius: 6px;
   // padding: 1px;
-  // border-color: rgb(214, 200, 78);
+  // border-color: #b59766;
 `;
 
 const RewardCard = styled.div`
@@ -261,7 +300,7 @@ const RewardCard = styled.div`
 
   background-color: rgba(0, 0, 0, 0.5);
   border-width: 0px;
-  border-color: rgb(214, 200, 78);
+  border-color: #b59766;
 
   display: flex;
   flex-direction: column;
@@ -304,6 +343,59 @@ type ServerState =
   | "disconnected";
 
 type WebState = "none" | "initializing" | "initialized" | "authorized";
+
+const BottomMenuIconWrap = styled.div`
+  width: 70px;
+  height: 70px;
+  margin-left: auto;
+  margin-right: auto;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  position: relative;
+`;
+
+const BottomMenuItem = styled.div`
+  flex: 1 1 0px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  padding: 10px 0px;
+
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+
+  row-gap: 6px;
+`;
+
+const BottomMenuLabel = styled.div`
+  margin-top: 6px;
+  width: 100%;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+
+  /* prevents weird vertical drift */
+  line-height: 1;
+`;
+
+const Dot = styled.div`
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #fb201e;
+  width: 15px;
+  height: 15px;
+  border-radius: 15px;
+  border: 1px solid #a43347;
+`;
 
 type Upgrade = {
   id: string;
@@ -737,8 +829,11 @@ export default function () {
 
   function onSelectAction(k: string) {
     if (k === "Inventory") {
-      CS.Arken.Web.WebCommunicator.Instance.ShowWeb();
+      CS.Arken.Bridge.Instance.ShowWeb();
       // CS.Arken.Web.WebCommunicator.Instance._prefab.gameObject.SetActive(true);
+    }
+    if (k === "Market") {
+      setModal("Settings" as ModalKey);
     } else {
       setModal(k as ModalKey);
     }
@@ -763,98 +858,111 @@ export default function () {
     if (active === "quest") return <QuestDockContent />;
     return <GameDockContent gameMode={gameInfo?.gameMode} />;
   }
-  const auth = {
-    username: null,
-  };
-
   return (
     <Wrapper>
       {serverState.current === "joined" ? (
-        <Scaled $scale={scale}>
-          <BarPos>
-            <ActionBarSwiper
-              onUse={emitAction}
-              globalCooldownSec={1}
-              bars={bars}
+        <Fragment>
+          <Scaled $scale={scale}>
+            <ActionBarPos>
+              <ActionBarSwiper
+                onUse={emitAction}
+                globalCooldownSec={1}
+                bars={bars}
+              />
+            </ActionBarPos>
+          </Scaled>
+
+          <Scaled $scale={scale}>
+            <GridPos>
+              <ActionGrid actions={actions} onUse={emitEmote} />
+            </GridPos>
+          </Scaled>
+
+          <Scaled $scale={scale}>
+            <Hud spec={hudSpec} />
+          </Scaled>
+
+          <Scaled $scale={scale}>
+            <ActionHub spec={menuSpec} onSelect={onSelectAction} />
+          </Scaled>
+          <Scaled $scale={scale}>
+            <SideDock
+              spec={sideDockSpec}
+              renderContent={renderSideDockContent}
             />
-          </BarPos>
-
-          <GridPos>
-            <ActionGrid actions={actions} onUse={emitEmote} />
-          </GridPos>
-
-          <Hud spec={hudSpec} />
-
-          <ActionHub spec={menuSpec} onSelect={onSelectAction} />
-
-          <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
-
-          {/* ✅ Reward popup (top-center)
+          </Scaled>
+          <Scaled $scale={scale}>
+            {/* ✅ Reward popup (top-center)
               IMPORTANT: render this LAST inside Scaled so it draws on top (no z-index in USS). */}
-          {reward ? (
-            <RewardAnchor>
-              {/* scale with UI zoom (old web used "zoom") */}
-              <div style={{ scale: `${scale} ${scale}` }}>
-                <RewardCardOuter>
-                  <RewardCard>
-                    <Icon
-                      src={`/images/rewards/${reward.rewardItemName}.png`}
-                      width={40}
-                      height={40}
-                    />
-                    {/* <Text size={18} bold color="#fff">
+            {reward ? (
+              <RewardAnchor>
+                {/* scale with UI zoom (old web used "zoom") */}
+                <div style={{ scale: `${scale} ${scale}` }}>
+                  <RewardCardOuter>
+                    <RewardCard>
+                      <Icon
+                        src={`/images/rewards/${reward.rewardItemName}.png`}
+                        width={40}
+                        height={40}
+                      />
+                      {/* <Text size={18} bold color="#fff">
                       {reward.quantity} {reward.rewardItemName.toUpperCase()}
                     </Text> */}
-                  </RewardCard>
-                </RewardCardOuter>
-              </div>
-            </RewardAnchor>
-          ) : null}
-        </Scaled>
+                    </RewardCard>
+                  </RewardCardOuter>
+                </div>
+              </RewardAnchor>
+            ) : null}
+          </Scaled>
+        </Fragment>
       ) : null}
 
       {serverState.current === "spectating" && isUpgradeOpen ? (
-        <UpgradeOverlay picking-mode={PickingMode.Position}>
-          <UpgradeOverlayInner picking-mode={PickingMode.Position}>
-            <UpgradeGrid
-              upgrades={upgrades}
-              onUse={(upgradeId) => {
-                setIsUpgradeOpen(false);
-                CS.Arken.Bridge.Instance.Emit(
-                  "chooseUpgrade",
-                  JSON.stringify(upgradeId)
-                );
-              }}
-            />
-          </UpgradeOverlayInner>
-        </UpgradeOverlay>
+        <Scaled $scale={scale}>
+          <UpgradeOverlay picking-mode={PickingMode.Position}>
+            <UpgradeOverlayInner picking-mode={PickingMode.Position}>
+              <UpgradeGrid
+                upgrades={upgrades}
+                onUse={(upgradeId) => {
+                  setIsUpgradeOpen(false);
+                  CS.Arken.Bridge.Instance.Emit(
+                    "chooseUpgrade",
+                    JSON.stringify(upgradeId)
+                  );
+                }}
+              />
+            </UpgradeOverlayInner>
+          </UpgradeOverlay>
+        </Scaled>
       ) : null}
 
       {serverState.current === "none" || serverState.current === "loading" ? (
-        <StatusOverlay picking-mode={PickingMode.Position}>
-          <BottomCenter picking-mode={PickingMode.Position}>
-            <StatusCard picking-mode={PickingMode.Position}>
-              <Text size={22} bold color="rgb(214, 200, 78)">
-                Connecting
-              </Text>
-            </StatusCard>
-          </BottomCenter>
-        </StatusOverlay>
+        <Scaled $scale={scale}>
+          <StatusOverlay picking-mode={PickingMode.Position}>
+            <BottomCenter picking-mode={PickingMode.Position}>
+              <StatusCard picking-mode={PickingMode.Position}>
+                <Text size={22} bold color="#b59766">
+                  Connecting
+                </Text>
+              </StatusCard>
+            </BottomCenter>
+          </StatusOverlay>
+        </Scaled>
       ) : null}
 
       <BottomLeft picking-mode={PickingMode.Position}>
         <ButtonFrame picking-mode={PickingMode.Position}>
           {serverState.current === "none" ? (
-            <Text size={22} bold color="rgb(214, 200, 78)">
+            <Text size={22} bold color="#b59766">
               Connecting to Arken Web
             </Text>
           ) : serverState.current === "loading" ? (
-            <Text size={22} bold color="rgb(214, 200, 78)">
+            <Text size={22} bold color="#b59766">
               Connecting to Arken Web
             </Text>
           ) : webState.current === "none" ||
             webState.current === "initializing" ? (
-            <Text size={22} bold color="rgb(214, 200, 78)">
+            <Text size={22} bold color="#b59766">
               Connecting to Arken Web
             </Text>
           ) : !profile?.name ? (
@@ -867,12 +975,7 @@ export default function () {
             </Button>
           ) : profile?.name && serverState.current === "spectating" ? (
             <Fragment>
-              <Text
-                size={22}
-                bold
-                color="rgb(214, 200, 78)"
-                style={{ padding: 10 }}
-              >
+              <Text size={22} bold color="#b59766" style={{ padding: 10 }}>
                 {profile.name}
               </Text>
               <Button
@@ -895,6 +998,27 @@ export default function () {
         </ButtonFrame>
       </BottomLeft>
 
+      <BottomRight picking-mode={PickingMode.Position}>
+        <ButtonFrame picking-mode={PickingMode.Position}>
+          <Button
+            picking-mode={PickingMode.Position}
+            onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+            onClick={showSkills}
+          >
+            P
+          </Button>
+        </ButtonFrame>
+        <ButtonFrame picking-mode={PickingMode.Position}>
+          <Button
+            picking-mode={PickingMode.Position}
+            onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+            onClick={showInbox}
+          >
+            M
+          </Button>
+        </ButtonFrame>
+      </BottomRight>
+
       {serverState.current === "disconnected" ? (
         <BottomCenter picking-mode={PickingMode.Position}>
           <ButtonFrame picking-mode={PickingMode.Position}>
@@ -908,6 +1032,101 @@ export default function () {
           </ButtonFrame>
         </BottomCenter>
       ) : null}
+
+      <BottomDock>
+        <Bottom>
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Explore
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Heroes
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Dot />
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Inventory
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Shop
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Guild
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+
+          <BottomMenuItem>
+            <BottomMenuIconWrap>
+              <Icon
+                src={`/evolution/images/events.png`}
+                width={70}
+                height={70}
+              />
+            </BottomMenuIconWrap>
+            <BottomMenuLabel>
+              <Text size={16} bold color="#fff">
+                Den
+              </Text>
+            </BottomMenuLabel>
+          </BottomMenuItem>
+        </Bottom>
+      </BottomDock>
 
       {/* ✅ Modal is NOT scaled, so it always covers the full screen */}
       {modal ? (
