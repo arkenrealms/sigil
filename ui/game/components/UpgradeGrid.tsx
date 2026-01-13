@@ -32,7 +32,31 @@ const CardWrap = styled.div`
   height: 300px;
   margin-left: 12px;
   margin-right: 12px;
+
+  background-color: #11111d;
+  border-width: 2px;
+  border-color: #b59766;
+  border-radius: 15px;
 `;
+
+// const Button = styled.div`
+//   padding: 7px 8px;
+
+//   border-radius: 10px;
+//   background-color: rgba(255, 255, 255, 0.08);
+
+//   display: flex;
+//   justify-content: center;
+//   align-items: center;
+
+//   padding: 7px 8px;
+
+//   border-radius: 10px;
+//   background-color: rgba(255, 255, 255, 0.08);
+
+//   color: rgba(255, 255, 255, 0.92);
+//   -unity-font-style: bold;
+// `;
 
 /**
  * Card: simple layered border feel using an outer frame + inner panel.
@@ -43,15 +67,11 @@ const Card = styled.div`
   width: 200px;
   height: 300px;
 
-  border-radius: 10px;
-
-  background-color: rgba(0, 0, 0, 0.95);
-
-  border-width: 2px;
-  border-color: rgba(214, 200, 78, 0.45);
-
   transition-property: border-color, background-color;
   transition-duration: 120ms;
+
+  color: rgba(255, 255, 255, 0.92);
+  -unity-font-style: bold;
 `;
 
 const CardHover = styled.div`
@@ -64,8 +84,6 @@ const CardHover = styled.div`
   border-radius: 10px;
 
   /* subtle second border layer */
-  border-width: 2px;
-  border-color: rgba(214, 200, 78, 0.18);
 
   /* inset-like effect with padding wrapper */
   padding: 6px;
@@ -75,9 +93,6 @@ const Inner = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-
-  border-radius: 8px;
-  background-color: rgba(0, 0, 0, 1);
 
   display: flex;
   flex-direction: column;
@@ -106,10 +121,10 @@ const IconWrap = styled.div`
   width: 56px;
   height: 56px;
 
-  border-radius: 6px;
-  border-width: 3px;
-  border-color: rgba(0, 0, 0, 1);
   background-color: #11111d;
+  border-width: 2px;
+  border-color: #b59766;
+  border-radius: 6px;
 `;
 
 const Title = styled.div`
@@ -163,7 +178,7 @@ export default function UpgradeGrid({ upgrades, onUse }: Props) {
 
                 {u.src ? (
                   <IconWrap>
-                    <Icon src={u.src} width={56} height={56} />
+                    <Icon src={u.src} width={52} height={52} />
                   </IconWrap>
                 ) : null}
 

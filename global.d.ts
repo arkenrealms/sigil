@@ -17,6 +17,8 @@ declare global {
           function EmitString(type: string, payload: string): void;
           function ShowWeb(path?: string): void;
           function HideWeb(): void;
+          function NavigateWeb(path?: string): void;
+          function Authorize(payload: string): void;
         }
       }
 

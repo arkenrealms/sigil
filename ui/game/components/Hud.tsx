@@ -13,13 +13,7 @@ const Line = styled.div<{ $last?: boolean }>`
 `;
 
 /* --- HUD shell --- */
-const HudPos = styled.div`
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  scale: 1.3;
-  transform-origin: 0px 0px;
-`;
+const HudPos = styled.div``;
 
 const HudPanel = styled.div`
   border-width: 0px;
@@ -81,7 +75,7 @@ const Divider = styled.div`
 const BoardClick = styled.div`
   margin-top: 8px;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: 6px;
   background-color: rgba(0, 0, 0, 0.25);
 `;
 

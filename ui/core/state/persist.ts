@@ -5,10 +5,13 @@ function nowMs() {
   return typeof Date !== "undefined" ? Date.now() : 0;
 }
 
-export function loadPrefsJson<T>(
-  key: string,
-  maxAgeMs: number = 300_000
-): T | null {
+export function debugPrefs(key: string) {
+  const raw = CS.UnityEngine.PlayerPrefs.GetString(key, "");
+
+  console.log("PlayerPrefs", key, raw);
+}
+
+export function loadPrefsJson<T>(key: string, maxAgeMs: number = 0): T | null {
   try {
     const raw = CS.UnityEngine.PlayerPrefs.GetString(key, "");
     if (!raw) return null;

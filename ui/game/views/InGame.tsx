@@ -10,6 +10,7 @@ import { Hud, HudSpec } from "../components/Hud";
 import { Icon } from "../../core/components/Icon";
 import { useLeaderboard } from "../state/useLeaderboard";
 import {
+  debugPrefs,
   loadPrefsJson,
   savePrefsJson,
   clearPrefs,
@@ -37,9 +38,10 @@ const emitLoad = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
 const emitJoin = () =>
   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
-const showLogin = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/login");
-const showInbox = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/inbox");
-const showSkills = () => CS?.Arken?.Bridge?.Instance?.ShowWeb("/skills");
+const showLogin = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/login");
+const showInbox = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/inbox");
+const showSkills = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/skills");
+const showTrek = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/trek");
 
 type PersistedInGame = {
   roundId: string;
@@ -49,9 +51,6 @@ type PersistedInGame = {
   serverTimerSec: number | null;
   reward: Reward | null;
 };
-
-const PREF_KEY = "sigil.ingame.cache.v1";
-const PREF_TTL_MS = 300_000;
 
 const StatusOverlay = styled.div`
   position: absolute;
@@ -67,6 +66,23 @@ const StatusOverlay = styled.div`
   background-color: rgba(0, 0, 0, 0.35);
 
   /* let children decide pointer handling */
+`;
+
+const HudWrap = styled.div<{ background: boolean }>`
+  position: absolute;
+  top: -6px;
+  left: 20px;
+  scale: 1.3;
+  transform-origin: 0px 0px;
+  padding-top: 5px;
+
+  ${(p) =>
+    p.background
+      ? `background-color: #11111d;
+  border-width: 2px;
+  border-color: #b59766;
+  border-radius: 6px;`
+      : ""}
 `;
 
 const StatusCard = styled.div`
@@ -95,11 +111,15 @@ const BottomRight = styled.div`
   translate: 0 0;
 `;
 
-const BottomDock = styled.div`
+const BottomDock = styled.div<{
+  $scale: number;
+}>`
   position: absolute;
   left: 20px;
   right: 20px;
   bottom: -10px;
+  max-width: 500px;
+  height: 120px;
 
   display: flex;
   justify-content: center;
@@ -108,19 +128,29 @@ const BottomDock = styled.div`
   pointer-events: auto;
 `;
 
-const Bottom = styled.div`
+const Bottom = styled.div<{ background: boolean; $scale: number }>`
   width: 100%;
-  max-width: 600px;
-  height: 120px;
+  padding-bottom: 10px;
 
   display: flex;
   flex-direction: row;
   align-items: stretch;
 
-  border-width: 2px;
+  /* UI Toolkit: scale is a property */
+  scale: ${(p) => p.$scale} ${(p) => p.$scale};
+  transform-origin: 0px 0px;
+
+  /* keep content filling the visible area after scaling */
+  width: ${(p) => `${(1 / p.$scale) * 100}%`};
+  height: ${(p) => `${(1 / p.$scale) * 100}%`};
+
+  ${(p) =>
+    p.background
+      ? `border-width: 2px;
   border-color: #b59766;
   border-radius: 15px;
-  background-color: #11111d;
+  background-color: #11111d;`
+      : ""}
 
   overflow: hidden; /* makes rounded corners clip children nicely */
 `;
@@ -132,20 +162,22 @@ const BottomCenter = styled.div`
   translate: -50% 0;
 `;
 
-const ButtonFrame = styled.div`
-  background-color: #11111d;
+const ButtonFrame = styled.div<{ background: boolean }>`
+  ${(p) =>
+    p.background
+      ? `background-color: #11111d;
   border-width: 2px;
   border-color: #b59766;
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 12px;`
+      : ""}
+  padding: 7px;
+  margin-bottom: 5px;
 `;
 
 const Button = styled.div`
-  width: 150px;
-  padding: 10px 12px;
+  padding: 7px 8px;
 
   border-radius: 10px;
-  background-color: rgba(255, 255, 255, 0.08);
 
   display: flex;
   justify-content: center;
@@ -153,6 +185,10 @@ const Button = styled.div`
 
   color: rgba(255, 255, 255, 0.92);
   -unity-font-style: bold;
+
+  &:hover {
+    filter: grayscale(1) sepia(0.5);
+  }
 `;
 
 /** Full-screen, unscaled root */
@@ -281,26 +317,26 @@ const GridPos = styled.div`
 /** Reward (top-center) */
 const RewardAnchor = styled.div`
   position: absolute;
-  top: 20px;
+  top: -6px;
   left: 50%;
   translate: -50% 0;
 
   /* keep it compact + clickable later */
 `;
 
-const RewardCardOuter = styled.div`
-  // border-radius: 6px;
-  // padding: 1px;
-  // border-color: #b59766;
-`;
+const RewardCardOuter = styled.div``;
 
-const RewardCard = styled.div`
+const RewardCard = styled.div<{ background: boolean }>`
   border-radius: 6px;
-  padding: 10px 14px;
+  padding: 19px 14px 10px 14px;
 
-  background-color: rgba(0, 0, 0, 0.5);
-  border-width: 0px;
+  ${(p) =>
+    p.background
+      ? `background-color: #11111d;
+  border-width: 2px;
   border-color: #b59766;
+  border-radius: 6px;`
+      : ""}
 
   display: flex;
   flex-direction: column;
@@ -347,6 +383,7 @@ type WebState = "none" | "initializing" | "initialized" | "authorized";
 const BottomMenuIconWrap = styled.div`
   width: 70px;
   height: 70px;
+  padding: 10px;
   margin-left: auto;
   margin-right: auto;
 
@@ -371,6 +408,10 @@ const BottomMenuItem = styled.div`
   border-right: 1px solid rgba(0, 0, 0, 0.08);
 
   row-gap: 6px;
+
+  &:hover {
+    filter: grayscale(1) sepia(1.5);
+  }
 `;
 
 const BottomMenuLabel = styled.div`
@@ -511,7 +552,10 @@ export default function () {
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
-    const cached = loadPrefsJson<PersistedInGame>(PREF_KEY, PREF_TTL_MS);
+    const cached = loadPrefsJson<PersistedInGame>(
+      "sigil.ingame.cache.v1",
+      300_000
+    );
     if (!cached) return;
 
     cachedRef.current = cached;
@@ -546,7 +590,7 @@ export default function () {
     // ✅ Gate restore by roundId match
     if (cached.roundId !== roundId) {
       // stale cache from another round
-      clearPrefs(PREF_KEY);
+      clearPrefs("sigil.ingame.cache.v1");
       hasHydratedRef.current = true;
       return;
     }
@@ -579,7 +623,7 @@ export default function () {
       serverTimerSec,
       reward,
     };
-    savePrefsJson(PREF_KEY, payload);
+    savePrefsJson("sigil.ingame.cache.v1", payload);
   }, [roundId, _serverState, _webState, gameInfo, serverTimerSec, reward]);
 
   useEffect(() => {
@@ -593,6 +637,49 @@ export default function () {
       // ---- serverState transitions ----
       if (eventName === "onLoaded") {
         setServerState("loading");
+
+        const auth: any = loadPrefsJson("auth");
+
+        if (auth?.address && auth?.token) {
+          console.log("[Sigil] Emitting login...");
+
+          // CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = "0x1a367CA7bD311F279F1dfAfF1e60c4d797Faa6eb";
+          // CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature =
+          //   "0x0eca1dd7511e0e74db9cf89899cf50f66768510a80195b8e338926fdd5f377b705eec7a311f5ac7b3adf6b8d21a3c3db6956476a103f63f671b877a81cfb193f1b";
+
+          // CS.Arken.Evolution.NetworkManager.Instance.CallWithJSON(
+          //   "login",
+          //   JSON.stringify({
+          //     name: "Unknown",
+          //     network: "bsc",
+          //     address: CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress,
+          //     device: "desktop",
+          //     signature: CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature,
+          //     version: "1.9.0",
+          //   })
+          // );
+
+          CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
+            auth.address;
+
+          // CS.Arken.Evolution.NetworkManager.Instance.emitLogin(
+          //   auth.name + ":bsc:" + auth.address + ":desktop:" + auth.token
+          //   // "Unknown:bsc:" + myPlayerAddress + ":desktop:" + myPlayerSignature
+          // );
+
+          CS.Arken.Evolution.NetworkManager.Instance.Call(
+            "login",
+            JSON.stringify({
+              name: auth.name,
+              network: "bsc",
+              address: auth.address,
+              device: "desktop",
+              signature: auth.token,
+              version: "1.9.0",
+            })
+          );
+        }
+
         return;
       }
 
@@ -614,7 +701,7 @@ export default function () {
       if (eventName === "onDisconnected") {
         setServerState("disconnected");
         setReward(null);
-        clearPrefs(PREF_KEY);
+        clearPrefs("sigil.ingame.cache.v1");
         return;
       }
 
@@ -740,11 +827,26 @@ export default function () {
         return;
       }
       if (eventName === "onInitialized") {
+        debugPrefs("auth"); // "sigil.ingame.cache.v1"
+
+        const auth = loadPrefsJson("auth");
+
+        if (auth) {
+          console.log("[Sigil] Authorizing...");
+          // console.log(`window.unity.authorize(${JSON.stringify(auth)});`);
+          CS.Arken.Bridge.Instance.Authorize(JSON.stringify(auth));
+        }
+
         setWebState("initialized");
         return;
       }
       if (eventName === "onAuthorized") {
         const params = JSON.parse(args);
+
+        if (params?.address && params?.token) {
+          savePrefsJson("auth", params);
+        }
+
         setWebState("authorized");
         setProfile(params);
       }
@@ -793,27 +895,31 @@ export default function () {
 
   const menuItems: ActionHubItem[] = useMemo(
     () => [
-      { key: "Events", label: "Events", icon: "/evolution/images/events.png" },
-      { key: "Chest", label: "Chest", icon: "/evolution/images/chest.png" },
+      { key: "Events", label: "Events", icon: "/evolution/icons/research.png" },
+      { key: "Chest", label: "Chest", icon: "/evolution/icons/chest.png" },
       {
         key: "Inventory",
         label: "Inventory",
-        icon: "/evolution/images/inventory.png",
+        icon: "/evolution/icons/bag2.png",
       },
-      { key: "Market", label: "Market", icon: "/evolution/images/market.png" },
+      { key: "Market", label: "Market", icon: "/evolution/icons/politics.png" },
       {
         key: "Settings",
         label: "Settings",
-        icon: "/evolution/images/settings.png",
+        icon: "/evolution/icons/settings.png",
       },
-      { key: "Craft", label: "Craft", icon: "/evolution/images/craft.png" },
-      { key: "Guild", label: "Guild", icon: "/evolution/images/guild.png" },
-      { key: "Party", label: "Party", icon: "/evolution/images/party.png" },
-      { key: "PVP", label: "PVP", icon: "/evolution/images/pvp.png" },
+      { key: "Craft", label: "Craft", icon: "/evolution/icons/helmet.png" },
+      { key: "Guild", label: "Guild", icon: "/evolution/icons/castle.png" },
+      {
+        key: "Party",
+        label: "Party",
+        icon: "/evolution/icons/group-users.png",
+      },
+      { key: "PVP", label: "PVP", icon: "/evolution/icons/swords2.png" },
       {
         key: "Leaderboard",
         label: "Leaderboard",
-        icon: "/evolution/images/leaderboard.png",
+        icon: "/evolution/icons/leaderboard.png",
       },
     ],
     []
@@ -861,8 +967,8 @@ export default function () {
   return (
     <Wrapper>
       {serverState.current === "joined" ? (
-        <Fragment>
-          <Scaled $scale={scale}>
+        <Scaled $scale={scale}>
+          {profile?.name ? (
             <ActionBarPos>
               <ActionBarSwiper
                 onUse={emitAction}
@@ -870,51 +976,43 @@ export default function () {
                 bars={bars}
               />
             </ActionBarPos>
-          </Scaled>
+          ) : null}
 
-          <Scaled $scale={scale}>
+          {/* <Scaled $scale={scale}>
             <GridPos>
               <ActionGrid actions={actions} onUse={emitEmote} />
             </GridPos>
-          </Scaled>
+          </Scaled> */}
 
-          <Scaled $scale={scale}>
+          <HudWrap>
             <Hud spec={hudSpec} />
-          </Scaled>
+          </HudWrap>
 
-          <Scaled $scale={scale}>
-            <ActionHub spec={menuSpec} onSelect={onSelectAction} />
-          </Scaled>
-          <Scaled $scale={scale}>
-            <SideDock
-              spec={sideDockSpec}
-              renderContent={renderSideDockContent}
-            />
-          </Scaled>
-          <Scaled $scale={scale}>
-            {/* ✅ Reward popup (top-center)
+          <ActionHub spec={menuSpec} onSelect={onSelectAction} />
+          <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
+          {/* ✅ Reward popup (top-center)
               IMPORTANT: render this LAST inside Scaled so it draws on top (no z-index in USS). */}
-            {reward ? (
-              <RewardAnchor>
-                {/* scale with UI zoom (old web used "zoom") */}
-                <div style={{ scale: `${scale} ${scale}` }}>
-                  <RewardCardOuter>
-                    <RewardCard>
-                      <Icon
-                        src={`/images/rewards/${reward.rewardItemName}.png`}
-                        width={40}
-                        height={40}
-                      />
-                      {/* <Text size={18} bold color="#fff">
+          {reward ? (
+            <RewardAnchor>
+              {/* scale with UI zoom (old web used "zoom") */}
+              <div style={{ scale: `${scale} ${scale}` }}>
+                <RewardCardOuter>
+                  <RewardCard>
+                    <Icon
+                      src={`/images/rewards/${reward.rewardItemName}.png`}
+                      width={40}
+                      height={40}
+                      shadow
+                    />
+                    {/* <Text size={18} bold color="#fff">
                       {reward.quantity} {reward.rewardItemName.toUpperCase()}
                     </Text> */}
-                    </RewardCard>
-                  </RewardCardOuter>
-                </div>
-              </RewardAnchor>
-            ) : null}
-          </Scaled>
-        </Fragment>
+                  </RewardCard>
+                </RewardCardOuter>
+              </div>
+            </RewardAnchor>
+          ) : null}
+        </Scaled>
       ) : null}
 
       {serverState.current === "spectating" && isUpgradeOpen ? (
@@ -936,87 +1034,113 @@ export default function () {
         </Scaled>
       ) : null}
 
-      {serverState.current === "none" || serverState.current === "loading" ? (
-        <Scaled $scale={scale}>
-          <StatusOverlay picking-mode={PickingMode.Position}>
-            <BottomCenter picking-mode={PickingMode.Position}>
-              <StatusCard picking-mode={PickingMode.Position}>
-                <Text size={22} bold color="#b59766">
-                  Connecting
-                </Text>
-              </StatusCard>
-            </BottomCenter>
-          </StatusOverlay>
-        </Scaled>
-      ) : null}
-
-      <BottomLeft picking-mode={PickingMode.Position}>
-        <ButtonFrame picking-mode={PickingMode.Position}>
-          {serverState.current === "none" ? (
+      {/* <Scaled $scale={scale}> */}
+      <BottomCenter picking-mode={PickingMode.Position}>
+        {serverState.current === "none" || serverState.current === "loading" ? (
+          <StatusCard picking-mode={PickingMode.Position}>
             <Text size={22} bold color="#b59766">
-              Connecting to Arken Web
+              Connecting
             </Text>
-          ) : serverState.current === "loading" ? (
-            <Text size={22} bold color="#b59766">
-              Connecting to Arken Web
-            </Text>
-          ) : webState.current === "none" ||
-            webState.current === "initializing" ? (
-            <Text size={22} bold color="#b59766">
-              Connecting to Arken Web
-            </Text>
-          ) : !profile?.name ? (
-            <Button
-              picking-mode={PickingMode.Position}
-              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={showLogin}
-            >
-              Login
-            </Button>
-          ) : profile?.name && serverState.current === "spectating" ? (
-            <Fragment>
-              <Text size={22} bold color="#b59766" style={{ padding: 10 }}>
-                {profile.name}
-              </Text>
-              <Button
-                picking-mode={PickingMode.Position}
-                onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-                onClick={emitLoad}
-              >
-                Revive
-              </Button>
-            </Fragment>
-          ) : (
+          </StatusCard>
+        ) : serverState.current === "spectating" && profile?.name ? (
+          <StatusCard picking-mode={PickingMode.Position}>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
               onClick={emitLoad}
             >
-              Sign Out
+              <Text size={24} bold color="#b59766">
+                Revive
+              </Text>
             </Button>
-          )}
-        </ButtonFrame>
+          </StatusCard>
+        ) : webState.current === "initialized" && !profile?.name ? (
+          <StatusCard picking-mode={PickingMode.Position}>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={showLogin}
+            >
+              <Text size={24} bold color="#b59766">
+                Login
+              </Text>
+            </Button>
+          </StatusCard>
+        ) : webState.current === "none" ||
+          webState.current === "initializing" ? (
+          <StatusCard picking-mode={PickingMode.Position}>
+            <Text size={22} bold color="#b59766">
+              Logging in....
+            </Text>
+          </StatusCard>
+        ) : null}
+      </BottomCenter>
+      {/* </Scaled> */}
+
+      <BottomLeft picking-mode={PickingMode.Position}>
+        {profile?.name ? (
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <Text size={22} bold color="#b59766" style={{ padding: 10 }}>
+              {profile.name}
+            </Text>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={emitLoad}
+            >
+              <Text size={18} bold color="#FFF">
+                Sign Out
+              </Text>
+            </Button>
+          </ButtonFrame>
+        ) : null}
       </BottomLeft>
 
       <BottomRight picking-mode={PickingMode.Position}>
-        <ButtonFrame picking-mode={PickingMode.Position}>
-          <Button
-            picking-mode={PickingMode.Position}
-            onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-            onClick={showSkills}
-          >
-            P
-          </Button>
-        </ButtonFrame>
-        <ButtonFrame picking-mode={PickingMode.Position}>
-          <Button
-            picking-mode={PickingMode.Position}
-            onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-            onClick={showInbox}
-          >
-            M
-          </Button>
-        </ButtonFrame>
+        <div style={{ scale: `${scale} ${scale}` }}>
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={showSkills}
+            >
+              <Icon
+                src={`/evolution/icons/swirl.png`}
+                width={40}
+                height={40}
+                shadow
+              />
+            </Button>
+          </ButtonFrame>
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={showTrek}
+            >
+              <Icon
+                src={`/evolution/icons/trek.png`}
+                width={40}
+                height={40}
+                shadow
+              />
+            </Button>
+          </ButtonFrame>
+          <ButtonFrame picking-mode={PickingMode.Position}>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={showInbox}
+            >
+              <Icon
+                src={`/evolution/icons/mail.png`}
+                width={40}
+                height={40}
+                shadow
+              />
+            </Button>
+          </ButtonFrame>
+        </div>
       </BottomRight>
 
       {serverState.current === "disconnected" ? (
@@ -1033,18 +1157,19 @@ export default function () {
         </BottomCenter>
       ) : null}
 
-      <BottomDock>
-        <Bottom>
+      <BottomDock $scale={scale}>
+        <Bottom $scale={scale}>
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/swords.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Explore
               </Text>
             </BottomMenuLabel>
@@ -1053,13 +1178,14 @@ export default function () {
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/helmet.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Heroes
               </Text>
             </BottomMenuLabel>
@@ -1069,13 +1195,14 @@ export default function () {
             <BottomMenuIconWrap>
               <Dot />
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/bag2.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Inventory
               </Text>
             </BottomMenuLabel>
@@ -1084,13 +1211,14 @@ export default function () {
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/shop.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Shop
               </Text>
             </BottomMenuLabel>
@@ -1099,13 +1227,14 @@ export default function () {
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/flag2.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Guild
               </Text>
             </BottomMenuLabel>
@@ -1114,13 +1243,14 @@ export default function () {
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon
-                src={`/evolution/images/events.png`}
-                width={70}
-                height={70}
+                src={`/evolution/icons/den.png`}
+                width={50}
+                height={50}
+                shadow
               />
             </BottomMenuIconWrap>
             <BottomMenuLabel>
-              <Text size={16} bold color="#fff">
+              <Text size={16} bold color="#fff" shadow>
                 Den
               </Text>
             </BottomMenuLabel>
