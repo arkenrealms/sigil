@@ -1,6 +1,10 @@
 // sigil/index.tsx
 //
 import { h, render } from "preact";
+import "./polyfills/self";
+import "./polyfills/base64";
+import "./polyfills/text-decoder";
+import "./polyfills/atob";
 import InGame from "./ui/game/views/InGame";
 
 document.addRuntimeUSS?.(`

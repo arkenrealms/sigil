@@ -10,6 +10,8 @@
   "devDependencies": {
     "chokidar": "^4.0.3",
     "chokidar-cli": "^3.0.0",
+    "@trpc/server": "11.0.0-rc.660",
+    "@trpc/client": "11.0.0-rc.660",
     "esbuild": "^0.20.0",
     "fs-extra": "^11.2.0",
     "postcss": "^8.4.38",
@@ -29,6 +31,8 @@
     "onejs-comps": "^0.0.14",
     "onejs-core": "~3.0.0",
     "onejs-preact": "^2.0.0",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "snarkjs": "~0.7.5",
+    "zod": "^4.3.5"
   }
 }
