@@ -29,16 +29,35 @@ import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
+import { trpc } from "../../../util/trpc";
+import {
+  onUnityServerEvent,
+  onUnityWebEvent,
+} from "../../../modules/game/unityEvents";
+import { useGameStore } from "../state/useGameStore";
 
-const emitAction = (actionId: string) =>
-  CS.Arken.Bridge.Instance?.Emit("action", JSON.stringify(actionId));
-const emitEmote = (emoteId: string) =>
-  CS.Arken.Bridge.Instance?.Emit("emote", JSON.stringify(emoteId));
-const emitLoad = () =>
-  CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
-const emitJoin = () =>
-  CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
-const showLogin = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/login");
+// const trpc = getUnityTrpc();
+
+// // const action = (actionId: string) =>
+//   // trpc.evolution.shard.action.mutate(actionId);
+// // const emitEmote = (emoteId: string) => trpc.shard.emote.mutate(emoteId);
+// const load = () => trpc.evolution.shard.load.mutate(); // or mutate(undefined)
+// const join = () => trpc.evolution.shard.join.mutate();
+
+// const action = (actionId: string) =>
+//   CS.Arken.Bridge.Instance?.Emit("action", JSON.stringify(actionId));
+// const emitEmote = (emoteId: string) =>
+//   CS.Arken.Bridge.Instance?.Emit("emote", JSON.stringify(emoteId));
+// const load = () =>
+//   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
+// const join = () => {
+//   // CS?.Arken?.Evolution?.NetworkManager?.Instance?.Reconnect();
+
+//   // setTimeout(function () {
+//   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
+//   // }, 2000);
+// };
+// const showLogin = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/login");
 const showInbox = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/inbox");
 const showSkills = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/skills");
 const showTrek = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/trek");
@@ -86,16 +105,16 @@ const HudWrap = styled.div<{ background: boolean }>`
 `;
 
 const StatusCard = styled.div`
-  background-color: #11111d;
-  border-width: 2px;
-  border-color: #b59766;
-  border-radius: 12px;
-  padding: 14px 18px;
+  padding: 10px 14px;
 
   display: flex;
   justify-content: center;
   align-items: center;
 `;
+// background-color: #11111d;
+// border-width: 2px;
+// border-color: #b59766;
+// border-radius: 12px;
 
 const BottomLeft = styled.div`
   position: absolute;
@@ -373,12 +392,18 @@ type GameInfo = {
 type ServerState =
   | "none"
   | "loading"
+  | "authorizing"
   | "joining"
   | "joined"
   | "spectating"
   | "disconnected";
 
-type WebState = "none" | "initializing" | "initialized" | "authorized";
+type WebState =
+  | "none"
+  | "initializing"
+  | "initialized"
+  | "authorizing"
+  | "authorized";
 
 const BottomMenuIconWrap = styled.div`
   width: 70px;
@@ -470,6 +495,11 @@ function parseRoundInfo(payload: string): GameInfo {
   const rewardWinnerName = parts[48];
 
   const timerSec = Number(timer);
+
+  if (!Number.isFinite(timerSec)) {
+    // todo: show error
+  }
+
   return {
     timerSec: Number.isFinite(timerSec) ? timerSec : undefined,
     gameMode,
@@ -551,10 +581,51 @@ export default function () {
   const hasHydratedRef = useRef(false);
   const [profile, setProfile] = useState(null);
 
+  // const gameStore = useGameStore();
+
+  const action = trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
+  const load = trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
+  const join = trpc.evolution.shard.join.useMutation(); //join.mutateAsync();
+  const login = trpc.evolution.shard.login.useMutation(); //join.mutateAsync();
+
+  // const emote = trpc.evolution.shard.emote.useMutation();
+  const showLogin = trpc.web.core.showLogin.useMutation();
+
+  // useEffect(() => {
+  //   const bridge = CS?.Arken?.Bridge?.Instance;
+  //   if (!bridge) return;
+
+  //   const onServer = (eventName: string, args: string) => {
+  //     // console.log("trying to call unity server event", eventName, args);
+  //     // don't await — keep handler fast; service can async as needed
+  //     onUnityServerEvent(eventName, args);
+  //   };
+
+  //   bridge.add_OnServerEvent?.(onServer);
+  //   // return () => bridge.remove_OnServerEvent?.(onServer);
+  // }, []);
+
+  // useEffect(() => {
+  //   const bridge = CS?.Arken?.Bridge?.Instance;
+  //   if (!bridge) return;
+
+  //   const onWeb = (eventName: string, args: string) => {
+  //     // onUnityWebEvent(eventName, args);
+  //   };
+
+  //   bridge.add_OnWebEvent?.(onWeb);
+  //   // return () => bridge.remove_OnWebEvent?.(onWeb);
+  // }, []);
+
+  // useEffect(() => {
+  //   const { detach } = getUnityTrpc();
+  //   return () => detach?.();
+  // }, []);
+
   useEffect(() => {
     const cached = loadPrefsJson<PersistedInGame>(
       "sigil.ingame.cache.v1",
-      300_000
+      300_000,
     );
     if (!cached) return;
 
@@ -569,7 +640,7 @@ export default function () {
     setGameInfo(cached.gameInfo || {});
 
     setServerTimerSec(
-      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
+      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null,
     );
     setReward(cached.reward ?? null);
 
@@ -605,7 +676,7 @@ export default function () {
     setGameInfo(cached.gameInfo || {});
 
     setServerTimerSec(
-      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null
+      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null,
     );
     setReward(cached.reward ?? null);
 
@@ -626,242 +697,298 @@ export default function () {
     savePrefsJson("sigil.ingame.cache.v1", payload);
   }, [roundId, _serverState, _webState, gameInfo, serverTimerSec, reward]);
 
-  useEffect(() => {
-    const bridge = CS?.Arken?.Bridge?.Instance;
-    if (!bridge) {
-      console.log("[OneJS] Bridge.Instance not found; events not bound.");
-      return;
-    }
+  // useEffect(() => {
+  //   const bridge = CS?.Arken?.Bridge?.Instance;
+  //   if (!bridge) {
+  //     console.log("[OneJS] Bridge.Instance not found; events not bound.");
+  //     return;
+  //   }
 
-    const onServerEvent = (eventName: string, args: string) => {
-      // ---- serverState transitions ----
-      if (eventName === "onLoaded") {
-        setServerState("loading");
+  //   const onServerEvent = async (eventName: string, args: string) => {
+  //     // ---- serverState transitions ----
+  //     if (eventName === "onLoaded") {
+  //       const auth: any = loadPrefsJson("auth");
 
-        const auth: any = loadPrefsJson("auth");
+  //       if (
+  //         auth?.address &&
+  //         auth?.token &&
+  //         auth?.address !== "undefined" &&
+  //         auth?.token !== "undefined"
+  //       ) {
+  //         console.log("[Sigil] Emitting login....");
 
-        if (auth?.address && auth?.token) {
-          console.log("[Sigil] Emitting login...");
+  //         setServerState("authorizing");
 
-          // CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = "0x1a367CA7bD311F279F1dfAfF1e60c4d797Faa6eb";
-          // CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature =
-          //   "0x0eca1dd7511e0e74db9cf89899cf50f66768510a80195b8e338926fdd5f377b705eec7a311f5ac7b3adf6b8d21a3c3db6956476a103f63f671b877a81cfb193f1b";
+  //         // CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = "0x1a367CA7bD311F279F1dfAfF1e60c4d797Faa6eb";
+  //         // CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature =
+  //         //   "0x0eca1dd7511e0e74db9cf89899cf50f66768510a80195b8e338926fdd5f377b705eec7a311f5ac7b3adf6b8d21a3c3db6956476a103f63f671b877a81cfb193f1b";
 
-          // CS.Arken.Evolution.NetworkManager.Instance.CallWithJSON(
-          //   "login",
-          //   JSON.stringify({
-          //     name: "Unknown",
-          //     network: "bsc",
-          //     address: CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress,
-          //     device: "desktop",
-          //     signature: CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature,
-          //     version: "1.9.0",
-          //   })
-          // );
+  //         // CS.Arken.Evolution.NetworkManager.Instance.CallWithJSON(
+  //         //   "login",
+  //         //   JSON.stringify({
+  //         //     name: "Unknown",
+  //         //     network: "bsc",
+  //         //     address: CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress,
+  //         //     device: "desktop",
+  //         //     signature: CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature,
+  //         //     version: "1.9.0",
+  //         //   })
+  //         // );
 
-          CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
-            auth.address;
+  //         if (CS.Arken?.Evolution?.NetworkManager?.Instance)
+  //           CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
+  //             auth.address;
 
-          // CS.Arken.Evolution.NetworkManager.Instance.emitLogin(
-          //   auth.name + ":bsc:" + auth.address + ":desktop:" + auth.token
-          //   // "Unknown:bsc:" + myPlayerAddress + ":desktop:" + myPlayerSignature
-          // );
+  //         // CS.Arken.Evolution.NetworkManager.Instance.emitLogin(
+  //         //   auth.name + ":bsc:" + auth.address + ":desktop:" + auth.token
+  //         //   // "Unknown:bsc:" + myPlayerAddress + ":desktop:" + myPlayerSignature
+  //         // );
 
-          CS.Arken.Evolution.NetworkManager.Instance.Call(
-            "login",
-            JSON.stringify({
-              name: auth.name,
-              network: "bsc",
-              address: auth.address,
-              device: "desktop",
-              signature: auth.token,
-              version: "1.9.0",
-            })
-          );
-        }
+  //         // await login.mutateAsync({
+  //         //   name: auth.name,
+  //         //   network: "bsc",
+  //         //   address: auth.address,
+  //         //   device: "desktop",
+  //         //   signature: auth.token,
+  //         //   version: "1.9.0",
+  //         // });
 
-        return;
-      }
+  //         // CS.Arken.Evolution.NetworkManager.Instance.Call(
+  //         //   "login",
+  //         //   JSON.stringify({
+  //         //     name: auth.name,
+  //         //     network: "bsc",
+  //         //     address: auth.address,
+  //         //     device: "desktop",
+  //         //     signature: auth.token,
+  //         //     version: "1.9.0"
+  //         //   })
+  //         // );
+  //       } else {
+  //         setServerState("loading");
+  //       }
 
-      if (eventName === "onLogin") {
-        setServerState("joining");
-        return;
-      }
+  //       return;
+  //     }
 
-      if (eventName === "onJoinGame") {
-        setServerState("joined");
-        return;
-      }
+  //     if (eventName === "onLogin") {
+  //       setServerState("joining");
+  //       return;
+  //     }
 
-      if (eventName === "onSpectate" || eventName === "onGameOver") {
-        setServerState("spectating");
-        return;
-      }
+  //     if (eventName === "onJoinGame") {
+  //       setServerState("joined");
+  //       return;
+  //     }
 
-      if (eventName === "onDisconnected") {
-        setServerState("disconnected");
-        setReward(null);
-        clearPrefs("sigil.ingame.cache.v1");
-        return;
-      }
+  //     if (eventName === "onSpectate" || eventName === "onGameOver") {
+  //       setServerState("spectating");
+  //       return;
+  //     }
 
-      // ---- reward events (old web UI parity) ----
-      if (eventName === "onSpawnReward") {
-        // old format: id:type:name:qty:x:y
-        const data = (args ?? "").split(":");
-        const id = data[0] ?? "";
-        const rewardItemType = data[1] ?? "";
-        const rewardItemName = data[2] ?? "";
-        const quantity = data[3] ?? "";
-        const x = data[4] ?? "";
-        const y = data[5] ?? "";
+  //     if (eventName === "onDisconnected") {
+  //       setServerState("disconnected");
+  //       setReward(null);
+  //       clearPrefs("sigil.ingame.cache.v1");
+  //       return;
+  //     }
 
-        const desc = rewardDescriptions(rewardItemName);
+  //     // ---- reward events (old web UI parity) ----
+  //     if (eventName === "onSpawnReward") {
+  //       // old format: id:type:name:qty:x:y
+  //       const data = (args ?? "").split(":");
+  //       const id = data[0] ?? "";
+  //       const rewardItemType = data[1] ?? "";
+  //       const rewardItemName = data[2] ?? "";
+  //       const quantity = data[3] ?? "";
+  //       const x = data[4] ?? "";
+  //       const y = data[5] ?? "";
 
-        setReward({
-          id,
-          rewardItemType,
-          rewardItemName,
-          quantity,
-          position: { x, y },
-          ...desc,
-        });
-        return;
-      }
+  //       const desc = rewardDescriptions(rewardItemName);
 
-      if (eventName === "onUpdateReward") {
-        // old web UI: clear reward when updated/claimed
-        setReward(null);
-        return;
-      }
+  //       setReward({
+  //         id,
+  //         rewardItemType,
+  //         rewardItemName,
+  //         quantity,
+  //         position: { x, y },
+  //         ...desc,
+  //       });
+  //       return;
+  //     }
 
-      // ---- data events ----
-      if (eventName === "onSetRoundInfo") {
-        // IMPORTANT: derive a stable roundId from payload
-        // If your payload includes a real round id field, use that.
-        // If not, fall back to hashing or using timer reset + something stable.
-        //
-        // Best: server includes roundId at a known index. Example assumes parts[1].
-        const parts = (args ?? "").split(":");
+  //     if (eventName === "onUpdateReward") {
+  //       // old web UI: clear reward when updated/claimed
+  //       setReward(null);
+  //       return;
+  //     }
 
-        // 🔧 Replace this with the actual index from your server payload
-        // Example: if parts[1] is roundId:
-        const nextRoundId = parts[22] ?? "";
+  //     // ---- data events ----
+  //     if (eventName === "onSetRoundInfo") {
+  //       // IMPORTANT: derive a stable roundId from payload
+  //       // If your payload includes a real round id field, use that.
+  //       // If not, fall back to hashing or using timer reset + something stable.
+  //       //
+  //       // Best: server includes roundId at a known index. Example assumes parts[1].
+  //       const parts = (args ?? "").split(":");
 
-        if (nextRoundId) setRoundId(nextRoundId);
+  //       // 🔧 Replace this with the actual index from your server payload
+  //       // Example: if parts[1] is roundId:
+  //       const nextRoundId = parts[22] ?? "";
 
-        const info = parseRoundInfo(args);
-        setGameInfo((prev) => ({ ...prev, ...info }));
+  //       if (nextRoundId) setRoundId(nextRoundId);
 
-        if (typeof info.timerSec === "number") setServerTimerSec(info.timerSec);
-        return;
-      }
+  //       const info = parseRoundInfo(args);
+  //       setGameInfo((prev) => ({ ...prev, ...info }));
 
-      if (eventName === "onUpgrade") {
-        /**
-         * Old payload format:
-         * updatesPending:rerolls,upgradeId1,upgradeId2,upgradeId3
-         */
-        try {
-          const parts = args.split(",");
-          const upgradeId1 = parts[1];
-          const upgradeId2 = parts[2];
-          const upgradeId3 = parts[3];
+  //       if (typeof info.timerSec === "number") setServerTimerSec(info.timerSec);
+  //       return;
+  //     }
 
-          // TODO: replace with server-driven data later
-          setUpgrades([
-            {
-              id: upgradeId1,
-              keybind: "1",
-              name: "BLM Shield",
-              description:
-                "Chaotic fire surrounds you for 10 seconds. You feel compelled to burn it all down.",
-              src: "/images/skills/200.png",
-            },
-            {
-              id: upgradeId2,
-              keybind: "2",
-              name: "Montana Speed",
-              description: "Gain +30% speed for 5 seconds.",
-              src: "/images/skills/201.png",
-            },
-            {
-              id: upgradeId3,
-              keybind: "3",
-              name: "Forrest Bump's Blessing",
-              description: "Gain +10% speed for 30 seconds.",
-              src: "/images/skills/202.png",
-            },
-          ]);
+  //     if (eventName === "onUpgrade") {
+  //       /**
+  //        * Old payload format:
+  //        * updatesPending:rerolls,upgradeId1,upgradeId2,upgradeId3
+  //        */
+  //       try {
+  //         const parts = args.split(",");
+  //         const upgradeId1 = parts[1];
+  //         const upgradeId2 = parts[2];
+  //         const upgradeId3 = parts[3];
 
-          setIsUpgradeOpen(true);
-        } catch (e) {
-          console.warn("[Upgrade] Failed to parse onUpgrade payload", args);
-        }
+  //         // TODO: replace with server-driven data later
+  //         setUpgrades([
+  //           {
+  //             id: upgradeId1,
+  //             keybind: "1",
+  //             name: "BLM Shield",
+  //             description:
+  //               "Chaotic fire surrounds you for 10 seconds. You feel compelled to burn it all down.",
+  //             src: "/images/skills/200.png",
+  //           },
+  //           {
+  //             id: upgradeId2,
+  //             keybind: "2",
+  //             name: "Montana Speed",
+  //             description: "Gain +30% speed for 5 seconds.",
+  //             src: "/images/skills/201.png",
+  //           },
+  //           {
+  //             id: upgradeId3,
+  //             keybind: "3",
+  //             name: "Forrest Bump's Blessing",
+  //             description: "Gain +10% speed for 30 seconds.",
+  //             src: "/images/skills/202.png",
+  //           },
+  //         ]);
 
-        return;
-      }
-    };
+  //         setIsUpgradeOpen(true);
+  //       } catch (e) {
+  //         console.warn("[Upgrade] Failed to parse onUpgrade payload", args);
+  //       }
 
-    if (typeof bridge.add_OnServerEvent === "function") {
-      bridge.add_OnServerEvent(onServerEvent);
-      return () => bridge.remove_OnServerEvent?.(onServerEvent);
-    }
+  //       return;
+  //     }
+  //   };
 
-    console.log(
-      "[OneJS] Warning: add_OnServerEvent missing; server events not bound."
-    );
-    return;
-  }, []);
+  //   if (typeof bridge.add_OnServerEvent === "function") {
+  //     bridge.add_OnServerEvent(onServerEvent);
+  //     return () => bridge.remove_OnServerEvent?.(onServerEvent);
+  //   }
 
-  useEffect(() => {
-    const bridge = CS?.Arken?.Bridge?.Instance;
-    if (!bridge) {
-      console.log("[OneJS] Bridge.Instance not found; events not bound.");
-      return;
-    }
+  //   console.log(
+  //     "[OneJS] Warning: add_OnServerEvent missing; server events not bound.",
+  //   );
+  //   return;
+  // }, []);
 
-    const onWebEvent = (eventName: string, args: string) => {
-      if (eventName === "onInitializing") {
-        setWebState("initializing");
-        return;
-      }
-      if (eventName === "onInitialized") {
-        debugPrefs("auth"); // "sigil.ingame.cache.v1"
+  // useEffect(() => {
+  //   const bridge = CS?.Arken?.Bridge?.Instance;
+  //   if (!bridge) {
+  //     console.log("[OneJS] Bridge.Instance not found; events not bound.");
+  //     return;
+  //   }
 
-        const auth = loadPrefsJson("auth");
+  //   const onWebEvent = (eventName: string, args: string) => {
+  //     if (eventName === "onInitializing") {
+  //       setWebState("initializing");
+  //       return;
+  //     }
+  //     if (eventName === "onInitialized") {
+  //       setWebState("initialized");
 
-        if (auth) {
-          console.log("[Sigil] Authorizing...");
-          // console.log(`window.unity.authorize(${JSON.stringify(auth)});`);
-          CS.Arken.Bridge.Instance.Authorize(JSON.stringify(auth));
-        }
+  //       debugPrefs("auth"); // "sigil.ingame.cache.v1"
 
-        setWebState("initialized");
-        return;
-      }
-      if (eventName === "onAuthorized") {
-        const params = JSON.parse(args);
+  //       const auth: any = loadPrefsJson("auth");
 
-        if (params?.address && params?.token) {
-          savePrefsJson("auth", params);
-        }
+  //       if (
+  //         auth?.address &&
+  //         auth?.token &&
+  //         auth?.address !== "undefined" &&
+  //         auth?.token !== "undefined"
+  //       ) {
+  //         setWebState("authorizing");
+  //         console.log("[Sigil] Authorizing...");
+  //         // console.log(`window.unity.authorize(${JSON.stringify(auth)});`);
+  //         CS?.Arken?.Bridge?.Instance?.Authorize(JSON.stringify(auth));
+  //       }
 
-        setWebState("authorized");
-        setProfile(params);
-      }
-    };
+  //       return;
+  //     }
+  //     if (eventName === "onAuthorized") {
+  //       const auth = JSON.parse(args);
 
-    if (typeof bridge.add_OnWebEvent === "function") {
-      bridge.add_OnWebEvent(onWebEvent);
-      return () => bridge.remove_OnWebEvent?.(onWebEvent);
-    }
+  //       if (auth?.address && auth?.token) {
+  //         setProfile(auth);
 
-    console.log(
-      "[OneJS] Warning: add_OnWebEvent missing; server events not bound."
-    );
-    return;
-  }, []);
+  //         savePrefsJson("auth", auth);
+
+  //         setWebState("authorized");
+
+  //         if (serverState.current === "loading") {
+  //           setServerState("authorizing");
+
+  //           // if (CS.Arken?.Evolution?.NetworkManager?.Instance)
+  //           CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
+  //             auth.address;
+
+  //           login.mutateAsync({
+  //             name: auth.name,
+  //             network: "bsc",
+  //             address: auth.address,
+  //             device: "desktop",
+  //             signature: auth.token,
+  //             version: "1.9.0",
+  //           });
+
+  //           // if (CS.Arken?.Evolution?.NetworkManager?.Instance)
+  //           //   CS.Arken.Evolution.NetworkManager.Instance.Call(
+  //           //     "login",
+  //           //     JSON.stringify({
+  //           //       name: auth.name,
+  //           //       network: "bsc",
+  //           //       address: auth.address,
+  //           //       device: "desktop",
+  //           //       signature: auth.token,
+  //           //       version: "1.9.0",
+  //           //     }),
+  //           //   );
+  //         } else {
+  //         }
+  //       }
+  //     }
+  //   };
+
+  //   if (typeof bridge.add_OnWebEvent === "function") {
+  //     bridge.add_OnWebEvent(onWebEvent);
+  //     return () => bridge.remove_OnWebEvent?.(onWebEvent);
+  //   }
+
+  //   console.log(
+  //     "[OneJS] Warning: add_OnWebEvent missing; server events not bound.",
+  //   );
+  //   return;
+  // }, []);
 
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
@@ -890,7 +1017,7 @@ export default function () {
       }`.trim(),
       rows: lb,
     }),
-    [lb, displayTimerSec, gameInfo.rewardItemAmount, gameInfo.rewardItemName]
+    [lb, displayTimerSec, gameInfo.rewardItemAmount, gameInfo.rewardItemName],
   );
 
   const menuItems: ActionHubItem[] = useMemo(
@@ -922,20 +1049,20 @@ export default function () {
         icon: "/evolution/icons/leaderboard.png",
       },
     ],
-    []
+    [],
   );
 
   const menuSpec: ActionHubSpec = useMemo(
     () => ({
       items: menuItems,
-      mobileHandleIcon: "/evolution/images/arrow_left.png",
+      mobileHandleIcon: "/evolution/icons/settings.png",
     }),
-    [menuItems]
+    [menuItems],
   );
 
   function onSelectAction(k: string) {
     if (k === "Inventory") {
-      CS.Arken.Bridge.Instance.ShowWeb();
+      CS.Arken?.Bridge?.Instance?.ShowWeb();
       // CS.Arken.Web.WebCommunicator.Instance._prefab.gameObject.SetActive(true);
     }
     if (k === "Market") {
@@ -948,15 +1075,15 @@ export default function () {
   const sideDockSpec: SideDockSpec = useMemo(
     () => ({
       tabs: [
-        { key: "quest", icon: "/evolution/images/quest.png" },
-        { key: "party", icon: "/evolution/images/party.png" },
-        { key: "game", icon: "/evolution/images/target.png" },
+        { key: "quest", icon: "/evolution/icons/quest.png" },
+        { key: "party", icon: "/evolution/icons/people.png" },
+        { key: "game", icon: "/evolution/icons/map.png" },
       ],
       initialTabKey: "game",
-      mobileHandleIcon: "/evolution/images/arrow_left.png",
+      mobileHandleIcon: "/evolution/icons/arrow-left.png",
       mobilePanelWidthPx: 390,
     }),
-    []
+    [],
   );
 
   function renderSideDockContent(active: SideDockTabKey) {
@@ -971,7 +1098,7 @@ export default function () {
           {profile?.name ? (
             <ActionBarPos>
               <ActionBarSwiper
-                onUse={emitAction}
+                onUse={(actionId: string) => action.mutateAsync(actionId)}
                 globalCooldownSec={1}
                 bars={bars}
               />
@@ -984,7 +1111,7 @@ export default function () {
             </GridPos>
           </Scaled> */}
 
-          <HudWrap>
+          <HudWrap background={false}>
             <Hud spec={hudSpec} />
           </HudWrap>
 
@@ -997,7 +1124,7 @@ export default function () {
               {/* scale with UI zoom (old web used "zoom") */}
               <div style={{ scale: `${scale} ${scale}` }}>
                 <RewardCardOuter>
-                  <RewardCard>
+                  <RewardCard background={false}>
                     <Icon
                       src={`/images/rewards/${reward.rewardItemName}.png`}
                       width={40}
@@ -1023,9 +1150,9 @@ export default function () {
                 upgrades={upgrades}
                 onUse={(upgradeId) => {
                   setIsUpgradeOpen(false);
-                  CS.Arken.Bridge.Instance.Emit(
+                  CS.Arken?.Bridge?.Instance?.Emit(
                     "chooseUpgrade",
-                    JSON.stringify(upgradeId)
+                    JSON.stringify(upgradeId),
                   );
                 }}
               />
@@ -1036,10 +1163,16 @@ export default function () {
 
       {/* <Scaled $scale={scale}> */}
       <BottomCenter picking-mode={PickingMode.Position}>
-        {serverState.current === "none" || serverState.current === "loading" ? (
+        {serverState.current === "none" ? (
           <StatusCard picking-mode={PickingMode.Position}>
-            <Text size={22} bold color="#b59766">
+            <Text size={20} bold shadow color="#fff">
               Connecting
+            </Text>
+          </StatusCard>
+        ) : serverState.current === "authorizing" ? (
+          <StatusCard picking-mode={PickingMode.Position}>
+            <Text size={20} bold shadow color="#fff">
+              Authorizing
             </Text>
           </StatusCard>
         ) : serverState.current === "spectating" && profile?.name ? (
@@ -1047,46 +1180,52 @@ export default function () {
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={emitLoad}
+              onClick={() => load.mutateAsync()}
             >
-              <Text size={24} bold color="#b59766">
+              <Text size={24} bold shadow color="#b59766">
                 Revive
-              </Text>
-            </Button>
-          </StatusCard>
-        ) : webState.current === "initialized" && !profile?.name ? (
-          <StatusCard picking-mode={PickingMode.Position}>
-            <Button
-              picking-mode={PickingMode.Position}
-              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={showLogin}
-            >
-              <Text size={24} bold color="#b59766">
-                Login
               </Text>
             </Button>
           </StatusCard>
         ) : webState.current === "none" ||
           webState.current === "initializing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
-            <Text size={22} bold color="#b59766">
-              Logging in....
+            <Text size={20} bold shadow color="#fff">
+              Initializing....
+            </Text>
+          </StatusCard>
+        ) : webState.current === "initialized" && !profile?.name ? (
+          <ButtonFrame picking-mode={PickingMode.Position} background>
+            <Button
+              picking-mode={PickingMode.Position}
+              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+              onClick={() => showLogin.mutateAsync()}
+            >
+              <Text size={24} bold color="#fff">
+                Login
+              </Text>
+            </Button>
+          </ButtonFrame>
+        ) : webState.current === "authorizing" ? (
+          <StatusCard picking-mode={PickingMode.Position}>
+            <Text size={20} bold shadow color="#fff">
+              Authorizing...
             </Text>
           </StatusCard>
         ) : null}
       </BottomCenter>
       {/* </Scaled> */}
 
-      <BottomLeft picking-mode={PickingMode.Position}>
+      {/* <BottomLeft picking-mode={PickingMode.Position}>
         {profile?.name ? (
-          <ButtonFrame picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Text size={22} bold color="#b59766" style={{ padding: 10 }}>
               {profile.name}
             </Text>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={emitLoad}
+              onClick={load}
             >
               <Text size={18} bold color="#FFF">
                 Sign Out
@@ -1094,11 +1233,11 @@ export default function () {
             </Button>
           </ButtonFrame>
         ) : null}
-      </BottomLeft>
+      </BottomLeft> */}
 
       <BottomRight picking-mode={PickingMode.Position}>
         <div style={{ scale: `${scale} ${scale}` }}>
-          <ButtonFrame picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
@@ -1112,7 +1251,7 @@ export default function () {
               />
             </Button>
           </ButtonFrame>
-          <ButtonFrame picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
@@ -1126,7 +1265,7 @@ export default function () {
               />
             </Button>
           </ButtonFrame>
-          <ButtonFrame picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
@@ -1143,22 +1282,25 @@ export default function () {
         </div>
       </BottomRight>
 
-      {serverState.current === "disconnected" ? (
+      {serverState.current === "disconnected" &&
+      webState.current === "authorized" ? (
         <BottomCenter picking-mode={PickingMode.Position}>
-          <ButtonFrame picking-mode={PickingMode.Position}>
+          <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button
               picking-mode={PickingMode.Position}
               onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={emitJoin}
+              onClick={() => join.mutateAsync()}
             >
-              Reconnect
+              <Text size={24} bold shadow color="#b59766">
+                Reconnect
+              </Text>
             </Button>
           </ButtonFrame>
         </BottomCenter>
       ) : null}
 
       <BottomDock $scale={scale}>
-        <Bottom $scale={scale}>
+        <Bottom $scale={scale} background={false}>
           <BottomMenuItem>
             <BottomMenuIconWrap>
               <Icon

@@ -1,11 +1,17 @@
 // sigil/index.tsx
 //
 import { h, render } from "preact";
-import "./polyfills/self";
-import "./polyfills/base64";
-import "./polyfills/text-decoder";
-import "./polyfills/atob";
+// import { QueryClientProvider } from "@tanstack/react-query";
+// import { trpc, trpcClient, queryClient } from "./util/trpc";
+// import "./polyfills/self";
+import "./polyfills/abort-controller";
+// import "./polyfills/base64";
+// import "./polyfills/text-decoder";
+// import "./polyfills/atob";
 import InGame from "./ui/game/views/InGame";
+import { bindUnityBridge } from "./util/bindUnityBridge";
+
+bindUnityBridge();
 
 document.addRuntimeUSS?.(`
   .shadow-text {
@@ -61,7 +67,16 @@ document.addRuntimeUSS?.(`
 `);
 
 const App = () => {
-  return <InGame />;
+  return (
+    /* @ts-ignore */
+    <InGame />
+  );
 };
+
+// <trpc.Provider client={trpcClient} queryClient={queryClient}>
+//   <QueryClientProvider client={queryClient}>
+//     <InGame />
+//   </QueryClientProvider>
+// </trpc.Provider>
 
 render(<App />, document.body as any);

@@ -1,14 +1,12 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["*"],
-      "onejs": ["node_modules/onejs-core"],
-      "onejs/*": ["node_modules/onejs-core/*"],
-      "preact": ["node_modules/onejs-preact", "node_modules/preact"],
-      "preact/*": ["node_modules/onejs-preact/*", "node_modules/preact/*"]
+      "onejs": ["./node_modules/onejs-core"],
+      "onejs/*": ["./node_modules/onejs-core/*"],
+      "preact": ["./node_modules/onejs-preact", "./node_modules/preact"],
+      "preact/*": ["./node_modules/onejs-preact/*", "./node_modules/preact/*"]
     },
-    "outDir": "@outputs/tsc",
+    "outDir": "./@outputs/tsc",
     "lib": ["esnext"],
     "target": "esnext",
     "module": "esnext",
@@ -20,7 +18,12 @@
     "sourceMap": true,
     "skipLibCheck": true
   },
-  "exclude": ["tmp", "@outputs"],
+  "exclude": [
+    "./tmp",
+    "./@outputs",
+    "./node_modules",
+    "./node_modules/@arken/node/**"
+  ],
   "include": [
     "ui/**/*.ts",
     "ui/**/*.tsx",
@@ -28,6 +31,9 @@
     "index.tsx",
     "global.d.ts",
     "data/actions.ts",
-    "data/bars.ts"
+    "data/bars.ts",
+    "app.ts",
+    "appInstance.ts",
+    "app.router.ts"
   ]
 }

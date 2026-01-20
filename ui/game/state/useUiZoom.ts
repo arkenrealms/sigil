@@ -6,8 +6,8 @@ declare const CS: any;
 const BASE_WIDTH = 1024;
 
 // Allow your example: 512px => 200%
-const MIN_ZOOM = 50;
-const MAX_ZOOM = 200;
+const MIN_ZOOM = 60;
+const MAX_ZOOM = 180;
 
 let zoomPercent = 100;
 let didInit = false;

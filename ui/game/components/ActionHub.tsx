@@ -35,12 +35,11 @@ const CollapsedBar = styled.div`
 const MenuBox = styled.div`
   width: 520px;
   padding: 20px 20px 20px 20px;
-
-  background-color: #1c1c2e;
-  border-width: 2px;
-  border-color: #666;
-  border-radius: 0px 0px 12px 12px;
 `;
+// background-color: #1c1c2e;
+// border-width: 2px;
+// border-color: #666;
+// border-radius: 0px 0px 12px 12px;
 
 const MenuRow = styled.div`
   display: flex;
@@ -110,16 +109,16 @@ const MobileMenuHandle = styled.div`
   width: 46px;
   height: 46px;
 
-  background-color: rgba(0, 0, 0, 0.55);
-  border-width: 2px;
-  border-color: rgb(214, 200, 78);
-  border-radius: 10px;
-
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
 `;
+
+// background-color: rgba(0, 0, 0, 0.55);
+// border-width: 2px;
+// border-color: rgb(214, 200, 78);
+// border-radius: 10px;
 
 const ArrowWrap = styled.div`
   width: 26px;
@@ -132,13 +131,16 @@ const MobileMenuPanel = styled.div<{ $open?: boolean }>`
   height: ${(p) => (p.$open ? "auto" : "0px")};
   overflow: hidden;
 
-  background-color: rgba(0, 0, 0, 0.75);
-  border-width: ${(p) => (p.$open ? "2px" : "0px")};
-  border-color: rgb(214, 200, 78);
-  border-radius: 0px 0px 12px 12px;
-
   padding: ${(p) => (p.$open ? "10px 12px 12px 12px" : "0px")};
+
+  scale: 0.5 0.5;
+  transform-origin: 0px 0px;
 `;
+
+// background-color: rgba(0, 0, 0, 0.75);
+// border-width: ${(p) => (p.$open ? "2px" : "0px")};
+// border-color: rgb(214, 200, 78);
+// border-radius: 0px 0px 12px 12px;
 
 export function ActionHub(props: {
   spec: ActionHubSpec;
@@ -226,7 +228,7 @@ export function ActionHub(props: {
 
           <MobileMenuHandle onPointerDown={() => setMobileOpen((v) => !v)}>
             <ArrowWrap>
-              <Icon src={spec.mobileHandleIcon} width={60} height={60} />
+              <Icon src={spec.mobileHandleIcon} width={30} height={30} />
             </ArrowWrap>
           </MobileMenuHandle>
         </MobileMenuPos>

@@ -1,6 +1,5 @@
-/**
- * Default OneJS ESbuild Config
- */
+// sigil/esbuild.mjs
+//
 import * as esbuild from "esbuild";
 import {
   importTransformationPlugin,
@@ -32,17 +31,18 @@ let ctx = await esbuild.context({
     react: "onejs-preact/compat",
     "react-dom": "onejs-preact/compat",
     crypto: "./stubs/node/crypto.ts",
-    child_process: "./stubs/node/child_process.ts",
-    fs: "./stubs/node/fs.ts",
+    // child_process: "./stubs/node/child_process.ts",
+    // fs: "./stubs/node/fs.ts",
     path: "./stubs/node/path.ts",
-    readline: "./stubs/node/readline.ts",
-    http: "./stubs/node/http.ts",
-    https: "./stubs/node/https.ts",
-    net: "./stubs/node/net.ts",
-    tls: "./stubs/node/tls.ts",
-    zlib: "./stubs/node/zlib.ts",
-    stream: "./stubs/node/stream.ts",
-    os: "./stubs/node/os.ts",
+    // readline: "./stubs/node/readline.ts",
+    // http: "./stubs/node/http.ts",
+    // https: "./stubs/node/https.ts",
+    // net: "./stubs/node/net.ts",
+    // tls: "./stubs/node/tls.ts",
+    // zlib: "./stubs/node/zlib.ts",
+    // stream: "./stubs/node/stream.ts",
+    // os: "./stubs/node/os.ts",
+    "react/jsx-runtime": "./stubs/node/jsx.ts",
   },
 });
 
