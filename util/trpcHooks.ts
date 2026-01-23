@@ -1,3 +1,4 @@
+// sigil/util/trpcHooks.ts
 import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 
 export type MiniMutationResult<TInput, TOutput> = {
@@ -9,28 +10,15 @@ export type MiniMutationResult<TInput, TOutput> = {
   reset: () => void;
 };
 
-/**
- * Wrap a tRPC proxy client so call sites can do:
- *   trpc.evolution.shard.action.useMutation().mutateAsync(...)
- *
- * Works in Preact (no Provider, no react-query).
- */
-export function createTrpcHooks<TClient extends object>(trpcClient: TClient) {
-  const getAtPath = (path: (string | symbol)[]) => {
-    let cur: any = trpcClient;
-    for (const p of path) cur = cur?.[p as any];
-    return cur;
-  };
+type TrpcBase = {
+  query: (path: string, input?: unknown) => Promise<any>;
+  mutation: (path: string, input?: unknown) => Promise<any>;
+};
 
-  const makeMutationHook = (path: (string | symbol)[]) => {
-    const proc = getAtPath(path);
-    if (!proc || typeof proc.mutate !== "function") {
-      const pretty = path.map(String).join(".");
-      throw new Error(
-        `[trpcHooks] ${pretty} is not a mutation (missing .mutate)`,
-      );
-    }
+export function createTrpcHooks(base: TrpcBase, opts?: { logging?: boolean }) {
+  const logging = !!opts?.logging;
 
+  const makeMutationHook = (pathStr: string) => {
     return function useMutation<
       TInput = any,
       TOutput = any,
@@ -40,12 +28,7 @@ export function createTrpcHooks<TClient extends object>(trpcClient: TClient) {
       const [error, setError] = useState<any>(undefined);
 
       const mountedRef = useRef(true);
-      useMemo(() => {
-        mountedRef.current = true;
-        return () => {
-          mountedRef.current = false;
-        };
-      }, []);
+      useMemo(() => () => void (mountedRef.current = false), []);
 
       const reset = useCallback(() => {
         if (!mountedRef.current) return;
@@ -54,27 +37,29 @@ export function createTrpcHooks<TClient extends object>(trpcClient: TClient) {
         setError(undefined);
       }, []);
 
-      const mutateAsync = useCallback(async (input: TInput) => {
-        if (mountedRef.current) {
-          setLoading(true);
-          setError(undefined);
-        }
-        try {
-          const res = await proc.mutate(input);
-          if (mountedRef.current) setData(res);
-          return res as TOutput;
-        } catch (e) {
-          if (mountedRef.current) setError(e);
-          throw e;
-        } finally {
-          if (mountedRef.current) setLoading(false);
-        }
-      }, []);
+      const mutateAsync = useCallback(
+        async (input: TInput) => {
+          if (logging) console.info("[trpcHooks] mutateAsync", pathStr, input);
+          if (mountedRef.current) {
+            setLoading(true);
+            setError(undefined);
+          }
+          try {
+            const res = await base.mutation(pathStr, input);
+            if (mountedRef.current) setData(res);
+            return res as TOutput;
+          } catch (e) {
+            if (mountedRef.current) setError(e);
+            throw e;
+          } finally {
+            if (mountedRef.current) setLoading(false);
+          }
+        },
+        [pathStr],
+      );
 
       const mutate = useCallback(
-        (input: TInput) => {
-          void mutateAsync(input);
-        },
+        (input: TInput) => void mutateAsync(input),
         [mutateAsync],
       );
 
@@ -82,24 +67,29 @@ export function createTrpcHooks<TClient extends object>(trpcClient: TClient) {
     };
   };
 
-  const makePathProxy = (path: (string | symbol)[]) =>
+  const mk = (parts: (string | symbol)[]): any =>
     new Proxy(
       {},
       {
         get(_t, prop) {
-          if (prop === "useMutation") return makeMutationHook(path);
-          if (prop === "raw") return getAtPath(path); // optional escape hatch
-          return makePathProxy([...path, prop]);
+          if (prop === "then") return undefined;
+
+          const pathStr = parts.map(String).join(".");
+
+          if (prop === "useMutation") return makeMutationHook(pathStr);
+
+          // imperative terminals
+          if (prop === "mutate" || prop === "mutateAsync") {
+            return (input?: any) => base.mutation(pathStr, input);
+          }
+          if (prop === "query") {
+            return (input?: any) => base.query(pathStr, input);
+          }
+
+          return mk([...parts, prop]);
         },
       },
     );
 
-  return new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        return makePathProxy([prop]);
-      },
-    },
-  ) as any;
+  return mk([]);
 }

@@ -1,5 +1,5 @@
 // sigil/util/trpc.ts
-import { createTRPCProxyClient } from "@trpc/client";
+import { TRPCClientError, createTRPCUntypedClient } from "@trpc/client";
 
 import {
   createSocketLink,
@@ -9,9 +9,12 @@ import {
   type WaitUntilFn,
 } from "./socketLink";
 
-import type { AppRouter } from "../app.router";
-import { createUnityEventSocket } from "./unityEventSocket";
+import type { StreamName } from "./unityStreamSocket";
+import { createUnityStreamSocket } from "./unityStreamSocket";
 import { createTrpcHooks } from "./trpcHooks";
+
+// unified facade type (local + remote live under ctx.app.trpc)
+export type AppTrpcCaller = any;
 
 const waitUntil: WaitUntilFn = (predicate, timeoutMs, intervalMs = 25) => {
   const start = Date.now();
@@ -29,85 +32,161 @@ function notifyTRPCError(err: any) {
   console.warn("[TRPC]", err?.message ?? err, err);
 }
 
-const backendToUnityChannel: Record<string, "server" | "web"> = {
-  seer: "server",
-  evolution: "server",
-  web: "web",
-};
-
-type FrontendBackendName = "seer" | "evolution" | "web";
+// ✅ only remote unity backends (exclude local sigil.* streams)
+type Route = Exclude<StreamName, "sigil.web" | "sigil.game">;
 
 const backends: BackendConfig[] = [
-  { name: "seer" as FrontendBackendName, url: "unity" },
-  { name: "evolution" as FrontendBackendName, url: "unity" },
-  { name: "web" as FrontendBackendName, url: "unity" },
+  { name: "seer", url: "unity" },
+  { name: "evolutionShard", url: "unity" },
+  { name: "evolutionRealm", url: "unity" },
+  { name: "forge", url: "unity" },
 ];
 
-const logging = false;
+function parseOpPath(opPath: string): { route: Route; method: string } {
+  const parts = String(opPath || "")
+    .split(".")
+    .filter(Boolean);
 
-const socketsByChannel: Partial<
-  Record<"server" | "web", ReturnType<typeof createUnityEventSocket>>
-> = {};
+  const p = parts[0] === "trpc" ? parts.slice(1) : parts;
 
-export const clients: Record<string, SocketClient> = {};
+  if (p.length < 2) {
+    throw new TRPCClientError<any>(
+      `Invalid tRPC path (expected "<backend>.<proc>" or "trpc.<backend>.<proc>"): ${opPath}`,
+    );
+  }
 
-for (const b of backends) {
-  const unityChannel = backendToUnityChannel[b.name] ?? "server";
+  const backend = p[0];
+  const rest = p.slice(1);
 
-  const sock =
-    socketsByChannel[unityChannel] ??
-    (socketsByChannel[unityChannel] = createUnityEventSocket(unityChannel));
+  if (backend === "seer") {
+    return { route: "seer", method: rest.join(".") };
+  }
 
-  const client: SocketClient = {
-    ioCallbacks: {},
-    socket: {
-      emit: (event: string, payload: any) => sock.emit(event, payload),
-      on: (event: string, cb: (payload: any) => void) => sock.on?.(event, cb),
-      off: (event: string, cb: (payload: any) => void) => sock.off?.(event, cb),
-      onAny: (cb: (event: string, payload: any) => void) => sock.onAny(cb),
-      offAny: (cb: (event: string, payload: any) => void) => sock.offAny(cb),
-    } as any,
-  };
+  if (backend === "forge") {
+    // forge.core.showLogin -> "forge.core.showLogin"
+    return { route: "forge", method: ["forge", ...rest].join(".") };
+  }
 
-  attachTrpcResponseHandler({
-    client,
-    backendName: b.name,
-    logging,
-    preferOnAny: true,
-    onServerPush: ({ method, params }) => {
-      if (logging) console.info(`[${b.name}] server push`, method, params);
-    },
-  });
+  if (backend === "evolution") {
+    const lane = rest[0]; // shard | realm
 
-  clients[b.name] = client;
+    if (lane === "shard")
+      return { route: "evolutionShard", method: rest.join(".") };
+    if (lane === "realm")
+      return { route: "evolutionRealm", method: rest.join(".") };
+
+    throw new TRPCClientError<any>(
+      `Invalid evolution route (expected evolution.shard.* or evolution.realm.*): ${opPath}`,
+    );
+  }
+
+  throw new TRPCClientError<any>(
+    `Unknown backend '${backend}' in ${opPath} (expected seer.*, forge.*, or evolution.(shard|realm).*)`,
+  );
 }
 
-const combinedLink = createSocketLink({
-  backends,
-  clients,
-  waitUntil,
-  notifyTRPCError,
-  requestTimeoutMs: 15_000,
-});
+export function createAppTrpcCaller(opts?: {
+  logging?: boolean;
+  requestTimeoutMs?: number;
+}) {
+  const logging = !!opts?.logging;
+  const requestTimeoutMs = opts?.requestTimeoutMs ?? 15_000;
 
-// ✅ Raw proxy client (NO react-query / NO Provider)
-export const trpcRaw = createTRPCProxyClient<AppRouter>({
-  links: [combinedLink],
-});
+  const streamSockets: Partial<
+    Record<Route, ReturnType<typeof createUnityStreamSocket>>
+  > = {};
+  const clients: Record<string, SocketClient> = {};
 
-// ✅ Preact-safe “hooks” facade: trpc.*.*.useMutation()
-export const trpc = createTrpcHooks(trpcRaw);
+  for (const b of backends) {
+    const route = b.name as Route;
 
-// Optional cleanup if you hot-reload / recreate app:
-export function detachUnityTrpc() {
-  try {
-    socketsByChannel.server?.destroy?.();
-  } catch (e) {
-    console.log("ERR21", e);
+    const sock =
+      streamSockets[route] ??
+      (streamSockets[route] = createUnityStreamSocket(route));
+
+    const client: SocketClient = {
+      ioCallbacks: {},
+      socket: {
+        emit: (event: string, payload: any) => sock.emit(event, payload),
+        on: (event: string, cb: (payload: any) => void) => sock.on?.(event, cb),
+        off: (event: string, cb: (payload: any) => void) =>
+          sock.off?.(event, cb),
+        onAny: (cb: (event: string, payload: any) => void) => sock.onAny(cb),
+        offAny: (cb: (event: string, payload: any) => void) => sock.offAny(cb),
+      } as any,
+    };
+
+    attachTrpcResponseHandler({
+      client,
+      backendName: route,
+      logging,
+      preferOnAny: true,
+      onServerPush: ({ method, params }) => {
+        if (logging) console.info(`[${route}] push`, method, params);
+      },
+    });
+
+    clients[route] = client;
   }
-  try {
-    socketsByChannel.web?.destroy?.();
-  } catch (e) {
-    console.log("ERR22", e);
-  }
+
+  const baseLink = createSocketLink({
+    backends,
+    clients,
+    waitUntil,
+    notifyTRPCError,
+    requestTimeoutMs,
+  });
+
+  const routedLink = (runtime: any) => {
+    const inner = baseLink(runtime);
+
+    return (ctx: any) => {
+      const { op, next } = ctx;
+      const { route, method } = parseOpPath(op.path);
+      const rewrittenOp = { ...op, path: `${route}.${method}` };
+
+      if (logging) {
+        console.info("[trpc] op", {
+          original: op.path,
+          rewritten: rewrittenOp.path,
+          type: op.type,
+          input: op.input,
+        });
+      }
+
+      return inner({ op: rewrittenOp, next });
+    };
+  };
+
+  const baseClient = createTRPCUntypedClient({
+    links: [routedLink],
+  });
+
+  // ✅ Hooks facade that talks to baseClient via string paths
+  const hooks = createTrpcHooks(
+    {
+      query: (path, input) => baseClient.query(path, input as any),
+      mutation: (path, input) => baseClient.mutation(path, input as any),
+    },
+    { logging },
+  );
+
+  return {
+    hooks: hooks as AppTrpcCaller,
+
+    detach() {
+      try {
+        streamSockets.seer?.destroy?.();
+      } catch {}
+      try {
+        streamSockets.evolutionShard?.destroy?.();
+      } catch {}
+      try {
+        streamSockets.evolutionRealm?.destroy?.();
+      } catch {}
+      try {
+        streamSockets.forge?.destroy?.();
+      } catch {}
+    },
+  };
 }

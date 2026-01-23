@@ -18,7 +18,7 @@ namespace Arken {
         public static Bridge Instance;
 
         // Fires for every server-dispatched event
-        public event Action<string, string> OnServerEvent;
+        public event Action<string, string> OnStreamEvent;
 
         [Serializable]
         private class Envelope {
@@ -52,7 +52,7 @@ namespace Arken {
         }
 
         public void HandleServerEvent(string eventName, string args) {
-            SafeInvoke(() => OnServerEvent?.Invoke(eventName, args), "OnServerEvent");
+            SafeInvoke(() => OnStreamEvent?.Invoke(eventName, args), "OnStreamEvent");
         }
 
         /// <summary>

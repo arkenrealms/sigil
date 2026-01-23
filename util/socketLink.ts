@@ -130,7 +130,7 @@ export function createSocketLink(
             id: uuid,
             method: method,
             type: op.type,
-            params: serialize(input),
+            params: input, // serialize(input),
           });
 
           // 3) Timeout handling
@@ -217,7 +217,8 @@ export function createSocketLink(
 // ======================
 
 /**
- * Attach a shared handler that resolves ioCallbacks for "trpcResponse".
+ * Attach a shared handler that resolves ioCallbacks for "trpcResponse"
+ * AND forwards "trpc" (no id) as server-push / commands.
  *
  * Supports either:
  *  - socket.on('trpcResponse', ...)
@@ -244,11 +245,16 @@ export function attachTrpcResponseHandler(
 
   const handlePayload = (eventName: string, payload: any) => {
     try {
-      if (logging) logInfo(`[${backendName} Socket] Event:`, payload);
+      if (logging)
+        logInfo(`[${backendName} Socket] Event:`, eventName, payload);
 
+      // -----------------------
+      // 1) Normal response path
+      // -----------------------
       if (eventName === "trpcResponse") {
         const id = payload?.[responseIdField];
-        const cb = client.ioCallbacks[id];
+        const cb = id ? client.ioCallbacks[id] : undefined;
+
         if (cb) {
           if (logging)
             logInfo(
@@ -256,30 +262,42 @@ export function attachTrpcResponseHandler(
               id,
               payload,
             );
+
           clearTimeout(cb.timeout);
+
           try {
-            // payload.result = payload.result ? deserialize(payload.result) : undefined;
-            // console.log('zzzzz', payload.result);
             cb.resolve(payload);
           } catch (e) {
             if (logging) logInfo(`[${backendName} Socket] Callback error:`, e);
             cb.reject(e);
           }
+
           delete client.ioCallbacks[id];
         } else if (logging) {
           logWarn(`[${backendName} Socket] No callback found for ID: ${id}`);
         }
-      } else {
-        // Server push case (no id)
+
+        return;
+      }
+
+      // -----------------------
+      // 2) Server-push / commands
+      // -----------------------
+      // Forge/webview can send "trpc" frames that are NOT correlated to a request.
+      // We treat them as push instructions.
+      if (eventName === "trpc") {
         if (onServerPush) {
           const { method, params } = payload ?? {};
           onServerPush({
-            id: payload[responseIdField],
+            id: payload?.[responseIdField], // might be absent; okay
             method,
             params: params ? deserialize(params) : undefined,
           });
         }
+        return;
       }
+
+      // Everything else: ignore (or you could forward elsewhere)
     } catch (e) {
       console.error(`[${backendName} Socket] Error in handler:`, e);
     }
@@ -288,9 +306,11 @@ export function attachTrpcResponseHandler(
   // Prefer onAny if requested and available
   if (preferOnAny && typeof client.socket.onAny === "function") {
     const anyHandler = (eventName: string, payload: any) => {
-      if (eventName !== "trpcResponse") return;
+      // IMPORTANT: allow BOTH "trpcResponse" (responses) and "trpc" (push)
+      if (eventName !== "trpcResponse" && eventName !== "trpc") return;
       handlePayload(eventName, payload);
     };
+
     client.socket.onAny(anyHandler);
     return () => {
       if (typeof client.socket.offAny === "function")
@@ -298,6 +318,7 @@ export function attachTrpcResponseHandler(
     };
   }
 
+  // Dedicated listeners
   const onTrpcHandler = (res: any) => handlePayload("trpc", res);
   const onTrpcResponseHandler = (res: any) =>
     handlePayload("trpcResponse", res);
@@ -365,7 +386,7 @@ export function createSocketProxyClient<TRouter = any>(
               id: uuid,
               method,
               type: op.type,
-              params: serialize(input),
+              params: input, // serialize(input),
             };
             client.ioCallbacks[uuid] = client.ioCallbacks[uuid] || {};
             client.ioCallbacks[uuid].request = request;

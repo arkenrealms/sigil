@@ -10,10 +10,6 @@ import {
 
 export const createRouter = (t: any) =>
   t.router({
-    showLogin: t.procedure
-      .input(z.object({ args: z.string().optional() }).optional())
-      .mutation(({ input, ctx }) => ctx.app.service.web.showLogin(input, ctx)),
-
     onInitializing: t.procedure
       .input(z.object({ args: z.string().optional() }).optional())
       .mutation(({ input, ctx }) =>

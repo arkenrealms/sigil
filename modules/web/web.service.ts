@@ -1,33 +1,70 @@
-// sigil/modules/web/web.service.ts
-import { loadPrefsJson, savePrefsJson } from "../../ui/core/state/persist";
-import { setGameState } from "../../ui/game/state/useGameStore";
+// arken/sigil/modules/web/web.service.ts
+import {
+  loadPrefsJson,
+  savePrefsJson,
+  clearPrefs,
+} from "../../ui/core/state/persist";
+import { getGameState, setGameState } from "../../ui/game/state/useGameStore";
+import { isValidAuth } from "../../util/isValidAuth";
 
 export class Service {
   onInitializing(_input?: { args?: string }) {
+    console.log("Service.Web.onInitializing", JSON.stringify(_input));
+
     setGameState({ webState: "initializing" });
   }
 
   onInitialized(_input?: { args?: string }) {
+    console.log("Service.Web.onInitialized", JSON.stringify(_input));
+
+    const gs = getGameState();
+
+    if (gs.webState !== "initializing") return;
+
     setGameState({ webState: "initialized" });
 
     const auth = loadPrefsJson("auth");
-    if (auth) {
+
+    if (isValidAuth(auth)) {
       setGameState({ webState: "authorizing" });
       CS?.Arken?.Bridge?.Instance?.Authorize?.(JSON.stringify(auth));
+    } else if (auth) {
+      clearPrefs("auth"); // ✅ prevent infinite bad authorize attempts
     }
   }
 
-  onAuthorized(input: { args: string }) {
-    const auth = JSON.parse(input.args);
+  async onAuthorized(input: { args: string }, ctx: any) {
+    console.log("Service.Web.onAuthorized", JSON.stringify(input));
 
-    // always reflect the latest profile into state
+    const gs = getGameState();
+
+    if (gs.webState !== "authorizing") return;
+
+    const auth = JSON.parse(input.args);
     setGameState({ profile: auth });
 
-    if (auth?.address && auth?.token) {
-      savePrefsJson("auth", auth);
-      setGameState({ webState: "authorized" });
-    } else {
-      setGameState({ webState: "authorized" });
+    if (!isValidAuth(auth)) {
+      clearPrefs("auth");
+      setGameState({ webState: "initialized" }); // or "none" if you prefer
+      return;
+    }
+
+    savePrefsJson("auth", auth);
+    setGameState({ webState: "authorized" });
+
+    if (gs.serverState === "loading") {
+      setGameState({ serverState: "authorizing" });
+
+      CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = auth.address;
+
+      await ctx.app.trpc.evolution.shard.login.mutate({
+        name: auth.name,
+        network: "bsc",
+        address: auth.address,
+        device: "desktop",
+        signature: auth.token,
+        version: "1.9.0",
+      });
     }
   }
 }

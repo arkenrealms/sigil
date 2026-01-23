@@ -8,7 +8,9 @@ export function getApp() {
   return _app;
 }
 
-// If you ever need to reset during hot reload:
 export function resetApp() {
+  try {
+    _app?.detachTrpc?.();
+  } catch {}
   _app = null;
 }

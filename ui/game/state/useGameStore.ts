@@ -1,5 +1,8 @@
-// sigil/ui/game/state/inGame.store.ts
+// arken/sigil/ui/game/state/inGame.store.ts
 import { useEffect, useState } from "preact/hooks";
+
+(globalThis as any).__SIGIL_STORE_ID__ ??= Math.random().toString(16).slice(2);
+console.log("[store] loaded", (globalThis as any).__SIGIL_STORE_ID__);
 
 export type ServerState =
   | "none"
@@ -88,6 +91,8 @@ export function getGameState(): GameState {
 }
 
 export function setGameState(patch: Partial<GameState>) {
+  console.log("[store] setGameState", JSON.stringify(patch));
+
   let changed = false;
   for (const k in patch) {
     const key = k as keyof GameState;

@@ -9,9 +9,6 @@ import "./polyfills/abort-controller";
 // import "./polyfills/text-decoder";
 // import "./polyfills/atob";
 import InGame from "./ui/game/views/InGame";
-import { bindUnityBridge } from "./util/bindUnityBridge";
-
-bindUnityBridge();
 
 document.addRuntimeUSS?.(`
   .shadow-text {

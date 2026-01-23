@@ -1,6 +1,6 @@
 // sigil/types.ts
 //
-import type { AppTrpcCaller } from "./util/trpcCaller";
+import type { AppTrpcCaller } from "./util/trpc";
 
 export type ApplicationServiceType = Partial<{
   // Internal app services (not tRPC)

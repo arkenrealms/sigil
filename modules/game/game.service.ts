@@ -2,6 +2,7 @@
 //
 import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
 import { getGameState, setGameState } from "../../ui/game/state/useGameStore";
+import { isValidAuth } from "../../util/isValidAuth";
 
 declare const CS: any;
 
@@ -54,17 +55,17 @@ export class Service {
    * ✅ Service does NOT care about transport.
    * It calls ctx.app.trpc.<backend>.<router>.<proc>
    */
-  async onLoaded(_input: any, ctx: any) {
+  async onLoaded(input: any, ctx: any) {
     const auth: any = loadPrefsJson("auth");
 
     console.log(
       "Service.Game.onLoaded",
-      JSON.stringify(_input),
+      JSON.stringify(input),
       JSON.stringify(auth),
       ctx,
     );
 
-    if (auth?.address && auth?.token) {
+    if (isValidAuth(auth)) {
       setGameState({ serverState: "authorizing" });
 
       // Keep native var in sync if you still use it on C# side
@@ -86,26 +87,29 @@ export class Service {
       return;
     }
 
+    // ✅ important: if invalid auth exists, wipe it so you don't loop forever
+    if (auth) clearPrefs("auth");
+
     setGameState({ serverState: "loading" });
   }
 
-  onLogin(_input: any, _ctx: any) {
+  onLogin(input: any, ctx: any) {
     setGameState({ serverState: "joining" });
   }
 
-  onJoinGame(_input: any, _ctx: any) {
+  onJoinGame(input: any, ctx: any) {
     setGameState({ serverState: "joined" });
   }
 
-  onSpectate(_input: any, _ctx: any) {
+  onSpectate(input: any, ctx: any) {
     setGameState({ serverState: "spectating" });
   }
 
-  onGameOver(_input: any, _ctx: any) {
+  onGameOver(input: any, ctx: any) {
     setGameState({ serverState: "spectating" });
   }
 
-  onDisconnected(_input: any, _ctx: any) {
+  onDisconnected(input: any, ctx: any) {
     setGameState({
       serverState: "disconnected",
       reward: null,
@@ -115,7 +119,7 @@ export class Service {
     clearPrefs("sigil.ingame.cache.v1");
   }
 
-  onSetRoundInfo(input: { args: string }, _ctx: any) {
+  onSetRoundInfo(input: { args: string }, ctx: any) {
     const raw = input.args ?? "";
     const parts = raw.split(":");
 
@@ -135,7 +139,7 @@ export class Service {
     });
   }
 
-  onSpawnReward(input: { args: string }, _ctx: any) {
+  onSpawnReward(input: { args: string }, ctx: any) {
     const data = (input.args ?? "").split(":");
     const id = data[0] ?? "";
     const rewardItemType = data[1] ?? "";
@@ -156,11 +160,29 @@ export class Service {
     });
   }
 
-  onUpdateReward(_input: any, _ctx: any) {
-    setGameState({ reward: null });
-  }
+  onUpdatePlayer(input: any, ctx: any) {}
 
-  onUpgrade(input: { args: string }, _ctx: any) {
+  onSetPositionMonitor(input: any, ctx: any) {}
+
+  onBroadcast(input: any, ctx: any) {}
+
+  onHideMinimap(input: any, ctx: any) {}
+
+  onOpenLevel2(input: any, ctx: any) {}
+
+  onSpawnPowerUp(input: any, ctx: any) {}
+
+  onUpdateReward(input: any, ctx: any) {}
+
+  onUpdateBestClient(input: any, ctx: any) {}
+
+  onSpawnClient(input: any, ctx: any) {}
+
+  onUpdatePickup(input: any, ctx: any) {}
+
+  onUpdateEvolution(input: any, ctx: any) {}
+
+  onUpgrade(input: { args: string }, ctx: any) {
     const raw = input.args ?? "";
     try {
       const parts = raw.split(",");
@@ -200,4 +222,6 @@ export class Service {
   }
 
   onChangeScene(scene: string) {}
+
+  onClearLeaderboard() {}
 }

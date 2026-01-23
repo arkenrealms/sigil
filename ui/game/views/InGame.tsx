@@ -1,4 +1,4 @@
-// sigil/ui/game/views/InGame.tsx
+// arken/sigil/ui/game/views/InGame.tsx
 import { h, Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import styled from "../../../util/styled";
@@ -29,12 +29,10 @@ import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
-import { trpc } from "../../../util/trpc";
-import {
-  onUnityServerEvent,
-  onUnityWebEvent,
-} from "../../../modules/game/unityEvents";
-import { useGameStore } from "../state/useGameStore";
+import { getApp } from "../../../appInstance";
+import { useGameStore, setGameState } from "../state/useGameStore";
+
+const app = getApp();
 
 // const trpc = getUnityTrpc();
 
@@ -542,19 +540,19 @@ function rewardDescriptions(name: string) {
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
 
-  const serverState = useRef<ServerState>("none");
-  const [_serverState, _setServerState] = useState<ServerState>("none");
-  function setServerState(next: ServerState) {
-    serverState.current = next;
-    _setServerState(next);
-  }
+  // const serverState = useRef<ServerState>("none");
+  // const [_serverState, _setServerState] = useState<ServerState>("none");
+  // function setServerState(next: ServerState) {
+  //   gs.serverState = next;
+  //   _setServerState(next);
+  // }
 
-  const webState = useRef<WebState>("none");
-  const [_webState, _setWebState] = useState<WebState>("none");
-  function setWebState(next: WebState) {
-    webState.current = next;
-    _setWebState(next);
-  }
+  // const webState = useRef<WebState>("none");
+  // const [_webState, _setWebState] = useState<WebState>("none");
+  // function setWebState(next: WebState) {
+  //   gs.webState = next;
+  //   _setWebState(next);
+  // }
 
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
@@ -563,33 +561,33 @@ export default function () {
 
   const lb = useLeaderboard();
 
-  // Game info driven by C# event
-  const [gameInfo, setGameInfo] = useState<GameInfo>({});
-  const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
+  // // Game info driven by C# event
+  // const [gameInfo, setGameInfo] = useState<GameInfo>({});
+  // const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
 
-  // Reward popup driven by onSpawnReward / onUpdateReward
-  const [reward, setReward] = useState<Reward | null>(null);
+  // // Reward popup driven by onSpawnReward / onUpdateReward
+  // const [reward, setReward] = useState<Reward | null>(null);
 
-  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-  const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
+  // const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  // const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
 
   // ✅ round id (derived from onSetRoundInfo)
-  const [roundId, setRoundId] = useState<string>("");
+  // const [roundId, setRoundId] = useState<string>("");
 
   // ✅ keep cached payload around until we can validate with roundId
   const cachedRef = useRef<PersistedInGame | null>(null);
   const hasHydratedRef = useRef(false);
-  const [profile, setProfile] = useState(null);
+  // const [profile, setProfile] = useState(null);
 
-  // const gameStore = useGameStore();
+  const gs = useGameStore();
 
-  const action = trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
-  const load = trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
-  const join = trpc.evolution.shard.join.useMutation(); //join.mutateAsync();
-  const login = trpc.evolution.shard.login.useMutation(); //join.mutateAsync();
+  const action = app.trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
+  const load = app.trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
+  const join = app.trpc.evolution.shard.join.useMutation(); //join.mutateAsync();
+  // const login = app.trpc.evolution.shard.login.useMutation(); //join.mutateAsync();
 
-  // const emote = trpc.evolution.shard.emote.useMutation();
-  const showLogin = trpc.web.core.showLogin.useMutation();
+  // const emote = app.trpc.evolution.shard.emote.useMutation();
+  const showLogin = app.trpc.forge.core.showLogin.useMutation();
 
   // useEffect(() => {
   //   const bridge = CS?.Arken?.Bridge?.Instance;
@@ -601,8 +599,8 @@ export default function () {
   //     onUnityServerEvent(eventName, args);
   //   };
 
-  //   bridge.add_OnServerEvent?.(onServer);
-  //   // return () => bridge.remove_OnServerEvent?.(onServer);
+  //   bridge.add_OnStreamEvent?.(onServer);
+  //   // return () => bridge.remove_OnStreamEvent?.(onServer);
   // }, []);
 
   // useEffect(() => {
@@ -623,6 +621,20 @@ export default function () {
   // }, []);
 
   useEffect(() => {
+    console.log(
+      "[InGame][store] render",
+      JSON.stringify({
+        serverState: gs.serverState,
+        webState: gs.webState,
+        hasProfile: !!gs.profile,
+        roundId: gs.roundId,
+        reward: gs.reward?.rewardItemName,
+        timer: gs.serverTimerSec,
+      }),
+    );
+  }, [gs]);
+
+  useEffect(() => {
     const cached = loadPrefsJson<PersistedInGame>(
       "sigil.ingame.cache.v1",
       300_000,
@@ -631,25 +643,22 @@ export default function () {
 
     cachedRef.current = cached;
 
-    serverState.current = cached.serverState;
-    setServerState(cached.serverState);
-
-    webState.current = cached.webState;
-    setWebState(cached.webState);
-
-    setGameInfo(cached.gameInfo || {});
-
-    setServerTimerSec(
-      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null,
-    );
-    setReward(cached.reward ?? null);
+    setGameState({
+      serverState: cached.serverState,
+      webState: cached.webState,
+      gameInfo: cached.gameInfo || {},
+      serverTimerSec:
+        typeof cached.serverTimerSec === "number"
+          ? cached.serverTimerSec
+          : null,
+      reward: cached.reward ?? null,
+    });
 
     hasHydratedRef.current = true;
   }, []);
 
-  // 2) Once we learn the *current* roundId, validate + hydrate fully (once)
   useEffect(() => {
-    if (!roundId) return;
+    if (!gs.roundId) return;
     if (hasHydratedRef.current) return;
 
     const cached = cachedRef.current;
@@ -658,343 +667,31 @@ export default function () {
       return;
     }
 
-    // ✅ Gate restore by roundId match
-    if (cached.roundId !== roundId) {
-      // stale cache from another round
+    if (cached.roundId !== gs.roundId) {
       clearPrefs("sigil.ingame.cache.v1");
       hasHydratedRef.current = true;
       return;
     }
 
-    // Restore fields
-    serverState.current = cached.serverState;
-    setServerState(cached.serverState);
-
-    webState.current = cached.webState;
-    setWebState(cached.webState);
-
-    setGameInfo(cached.gameInfo || {});
-
-    setServerTimerSec(
-      typeof cached.serverTimerSec === "number" ? cached.serverTimerSec : null,
-    );
-    setReward(cached.reward ?? null);
+    setGameState({
+      serverState: cached.serverState,
+      webState: cached.webState,
+      gameInfo: cached.gameInfo || {},
+      serverTimerSec:
+        typeof cached.serverTimerSec === "number"
+          ? cached.serverTimerSec
+          : null,
+      reward: cached.reward ?? null,
+    });
 
     hasHydratedRef.current = true;
-  }, [roundId]);
-
-  // 3) Persist (only when we have a roundId)
-  useEffect(() => {
-    if (!roundId) return;
-    const payload: PersistedInGame = {
-      roundId,
-      serverState: _serverState,
-      webState: _webState,
-      gameInfo,
-      serverTimerSec,
-      reward,
-    };
-    savePrefsJson("sigil.ingame.cache.v1", payload);
-  }, [roundId, _serverState, _webState, gameInfo, serverTimerSec, reward]);
-
-  // useEffect(() => {
-  //   const bridge = CS?.Arken?.Bridge?.Instance;
-  //   if (!bridge) {
-  //     console.log("[OneJS] Bridge.Instance not found; events not bound.");
-  //     return;
-  //   }
-
-  //   const onServerEvent = async (eventName: string, args: string) => {
-  //     // ---- serverState transitions ----
-  //     if (eventName === "onLoaded") {
-  //       const auth: any = loadPrefsJson("auth");
-
-  //       if (
-  //         auth?.address &&
-  //         auth?.token &&
-  //         auth?.address !== "undefined" &&
-  //         auth?.token !== "undefined"
-  //       ) {
-  //         console.log("[Sigil] Emitting login....");
-
-  //         setServerState("authorizing");
-
-  //         // CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = "0x1a367CA7bD311F279F1dfAfF1e60c4d797Faa6eb";
-  //         // CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature =
-  //         //   "0x0eca1dd7511e0e74db9cf89899cf50f66768510a80195b8e338926fdd5f377b705eec7a311f5ac7b3adf6b8d21a3c3db6956476a103f63f671b877a81cfb193f1b";
-
-  //         // CS.Arken.Evolution.NetworkManager.Instance.CallWithJSON(
-  //         //   "login",
-  //         //   JSON.stringify({
-  //         //     name: "Unknown",
-  //         //     network: "bsc",
-  //         //     address: CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress,
-  //         //     device: "desktop",
-  //         //     signature: CS.Arken.Evolution.NetworkManager.Instance.myPlayerSignature,
-  //         //     version: "1.9.0",
-  //         //   })
-  //         // );
-
-  //         if (CS.Arken?.Evolution?.NetworkManager?.Instance)
-  //           CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
-  //             auth.address;
-
-  //         // CS.Arken.Evolution.NetworkManager.Instance.emitLogin(
-  //         //   auth.name + ":bsc:" + auth.address + ":desktop:" + auth.token
-  //         //   // "Unknown:bsc:" + myPlayerAddress + ":desktop:" + myPlayerSignature
-  //         // );
-
-  //         // await login.mutateAsync({
-  //         //   name: auth.name,
-  //         //   network: "bsc",
-  //         //   address: auth.address,
-  //         //   device: "desktop",
-  //         //   signature: auth.token,
-  //         //   version: "1.9.0",
-  //         // });
-
-  //         // CS.Arken.Evolution.NetworkManager.Instance.Call(
-  //         //   "login",
-  //         //   JSON.stringify({
-  //         //     name: auth.name,
-  //         //     network: "bsc",
-  //         //     address: auth.address,
-  //         //     device: "desktop",
-  //         //     signature: auth.token,
-  //         //     version: "1.9.0"
-  //         //   })
-  //         // );
-  //       } else {
-  //         setServerState("loading");
-  //       }
-
-  //       return;
-  //     }
-
-  //     if (eventName === "onLogin") {
-  //       setServerState("joining");
-  //       return;
-  //     }
-
-  //     if (eventName === "onJoinGame") {
-  //       setServerState("joined");
-  //       return;
-  //     }
-
-  //     if (eventName === "onSpectate" || eventName === "onGameOver") {
-  //       setServerState("spectating");
-  //       return;
-  //     }
-
-  //     if (eventName === "onDisconnected") {
-  //       setServerState("disconnected");
-  //       setReward(null);
-  //       clearPrefs("sigil.ingame.cache.v1");
-  //       return;
-  //     }
-
-  //     // ---- reward events (old web UI parity) ----
-  //     if (eventName === "onSpawnReward") {
-  //       // old format: id:type:name:qty:x:y
-  //       const data = (args ?? "").split(":");
-  //       const id = data[0] ?? "";
-  //       const rewardItemType = data[1] ?? "";
-  //       const rewardItemName = data[2] ?? "";
-  //       const quantity = data[3] ?? "";
-  //       const x = data[4] ?? "";
-  //       const y = data[5] ?? "";
-
-  //       const desc = rewardDescriptions(rewardItemName);
-
-  //       setReward({
-  //         id,
-  //         rewardItemType,
-  //         rewardItemName,
-  //         quantity,
-  //         position: { x, y },
-  //         ...desc,
-  //       });
-  //       return;
-  //     }
-
-  //     if (eventName === "onUpdateReward") {
-  //       // old web UI: clear reward when updated/claimed
-  //       setReward(null);
-  //       return;
-  //     }
-
-  //     // ---- data events ----
-  //     if (eventName === "onSetRoundInfo") {
-  //       // IMPORTANT: derive a stable roundId from payload
-  //       // If your payload includes a real round id field, use that.
-  //       // If not, fall back to hashing or using timer reset + something stable.
-  //       //
-  //       // Best: server includes roundId at a known index. Example assumes parts[1].
-  //       const parts = (args ?? "").split(":");
-
-  //       // 🔧 Replace this with the actual index from your server payload
-  //       // Example: if parts[1] is roundId:
-  //       const nextRoundId = parts[22] ?? "";
-
-  //       if (nextRoundId) setRoundId(nextRoundId);
-
-  //       const info = parseRoundInfo(args);
-  //       setGameInfo((prev) => ({ ...prev, ...info }));
-
-  //       if (typeof info.timerSec === "number") setServerTimerSec(info.timerSec);
-  //       return;
-  //     }
-
-  //     if (eventName === "onUpgrade") {
-  //       /**
-  //        * Old payload format:
-  //        * updatesPending:rerolls,upgradeId1,upgradeId2,upgradeId3
-  //        */
-  //       try {
-  //         const parts = args.split(",");
-  //         const upgradeId1 = parts[1];
-  //         const upgradeId2 = parts[2];
-  //         const upgradeId3 = parts[3];
-
-  //         // TODO: replace with server-driven data later
-  //         setUpgrades([
-  //           {
-  //             id: upgradeId1,
-  //             keybind: "1",
-  //             name: "BLM Shield",
-  //             description:
-  //               "Chaotic fire surrounds you for 10 seconds. You feel compelled to burn it all down.",
-  //             src: "/images/skills/200.png",
-  //           },
-  //           {
-  //             id: upgradeId2,
-  //             keybind: "2",
-  //             name: "Montana Speed",
-  //             description: "Gain +30% speed for 5 seconds.",
-  //             src: "/images/skills/201.png",
-  //           },
-  //           {
-  //             id: upgradeId3,
-  //             keybind: "3",
-  //             name: "Forrest Bump's Blessing",
-  //             description: "Gain +10% speed for 30 seconds.",
-  //             src: "/images/skills/202.png",
-  //           },
-  //         ]);
-
-  //         setIsUpgradeOpen(true);
-  //       } catch (e) {
-  //         console.warn("[Upgrade] Failed to parse onUpgrade payload", args);
-  //       }
-
-  //       return;
-  //     }
-  //   };
-
-  //   if (typeof bridge.add_OnServerEvent === "function") {
-  //     bridge.add_OnServerEvent(onServerEvent);
-  //     return () => bridge.remove_OnServerEvent?.(onServerEvent);
-  //   }
-
-  //   console.log(
-  //     "[OneJS] Warning: add_OnServerEvent missing; server events not bound.",
-  //   );
-  //   return;
-  // }, []);
-
-  // useEffect(() => {
-  //   const bridge = CS?.Arken?.Bridge?.Instance;
-  //   if (!bridge) {
-  //     console.log("[OneJS] Bridge.Instance not found; events not bound.");
-  //     return;
-  //   }
-
-  //   const onWebEvent = (eventName: string, args: string) => {
-  //     if (eventName === "onInitializing") {
-  //       setWebState("initializing");
-  //       return;
-  //     }
-  //     if (eventName === "onInitialized") {
-  //       setWebState("initialized");
-
-  //       debugPrefs("auth"); // "sigil.ingame.cache.v1"
-
-  //       const auth: any = loadPrefsJson("auth");
-
-  //       if (
-  //         auth?.address &&
-  //         auth?.token &&
-  //         auth?.address !== "undefined" &&
-  //         auth?.token !== "undefined"
-  //       ) {
-  //         setWebState("authorizing");
-  //         console.log("[Sigil] Authorizing...");
-  //         // console.log(`window.unity.authorize(${JSON.stringify(auth)});`);
-  //         CS?.Arken?.Bridge?.Instance?.Authorize(JSON.stringify(auth));
-  //       }
-
-  //       return;
-  //     }
-  //     if (eventName === "onAuthorized") {
-  //       const auth = JSON.parse(args);
-
-  //       if (auth?.address && auth?.token) {
-  //         setProfile(auth);
-
-  //         savePrefsJson("auth", auth);
-
-  //         setWebState("authorized");
-
-  //         if (serverState.current === "loading") {
-  //           setServerState("authorizing");
-
-  //           // if (CS.Arken?.Evolution?.NetworkManager?.Instance)
-  //           CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
-  //             auth.address;
-
-  //           login.mutateAsync({
-  //             name: auth.name,
-  //             network: "bsc",
-  //             address: auth.address,
-  //             device: "desktop",
-  //             signature: auth.token,
-  //             version: "1.9.0",
-  //           });
-
-  //           // if (CS.Arken?.Evolution?.NetworkManager?.Instance)
-  //           //   CS.Arken.Evolution.NetworkManager.Instance.Call(
-  //           //     "login",
-  //           //     JSON.stringify({
-  //           //       name: auth.name,
-  //           //       network: "bsc",
-  //           //       address: auth.address,
-  //           //       device: "desktop",
-  //           //       signature: auth.token,
-  //           //       version: "1.9.0",
-  //           //     }),
-  //           //   );
-  //         } else {
-  //         }
-  //       }
-  //     }
-  //   };
-
-  //   if (typeof bridge.add_OnWebEvent === "function") {
-  //     bridge.add_OnWebEvent(onWebEvent);
-  //     return () => bridge.remove_OnWebEvent?.(onWebEvent);
-  //   }
-
-  //   console.log(
-  //     "[OneJS] Warning: add_OnWebEvent missing; server events not bound.",
-  //   );
-  //   return;
-  // }, []);
+  }, [gs.roundId]);
 
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
   useEffect(() => {
-    setDisplayTimerSec(serverTimerSec);
-  }, [serverTimerSec]);
+    setDisplayTimerSec(gs.serverTimerSec);
+  }, [gs.serverTimerSec]);
 
   useEffect(() => {
     if (displayTimerSec == null) return;
@@ -1012,12 +709,17 @@ export default function () {
   const hudSpec: HudSpec = useMemo(
     () => ({
       timeLeftText: formatMMSS(displayTimerSec ?? undefined),
-      rewardText: `${gameInfo.rewardItemAmount || "—"} ${
-        gameInfo.rewardItemName || ""
+      rewardText: `${gs.gameInfo.rewardItemAmount || "—"} ${
+        gs.gameInfo.rewardItemName || ""
       }`.trim(),
       rows: lb,
     }),
-    [lb, displayTimerSec, gameInfo.rewardItemAmount, gameInfo.rewardItemName],
+    [
+      lb,
+      displayTimerSec,
+      gs.gameInfo.rewardItemAmount,
+      gs.gameInfo.rewardItemName,
+    ],
   );
 
   const menuItems: ActionHubItem[] = useMemo(
@@ -1089,13 +791,13 @@ export default function () {
   function renderSideDockContent(active: SideDockTabKey) {
     if (active === "party") return <PartyDockContent />;
     if (active === "quest") return <QuestDockContent />;
-    return <GameDockContent gameMode={gameInfo?.gameMode} />;
+    return <GameDockContent gameMode={gs?.gameInfo?.gameMode} />;
   }
   return (
     <Wrapper>
-      {serverState.current === "joined" ? (
+      {gs.serverState === "joined" ? (
         <Scaled $scale={scale}>
-          {profile?.name ? (
+          {gs.profile?.name ? (
             <ActionBarPos>
               <ActionBarSwiper
                 onUse={(actionId: string) => action.mutateAsync(actionId)}
@@ -1119,14 +821,14 @@ export default function () {
           <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
           {/* ✅ Reward popup (top-center)
               IMPORTANT: render this LAST inside Scaled so it draws on top (no z-index in USS). */}
-          {reward ? (
+          {gs.reward ? (
             <RewardAnchor>
               {/* scale with UI zoom (old web used "zoom") */}
               <div style={{ scale: `${scale} ${scale}` }}>
                 <RewardCardOuter>
                   <RewardCard background={false}>
                     <Icon
-                      src={`/images/rewards/${reward.rewardItemName}.png`}
+                      src={`/images/rewards/${gs.reward.rewardItemName}.png`}
                       width={40}
                       height={40}
                       shadow
@@ -1142,14 +844,14 @@ export default function () {
         </Scaled>
       ) : null}
 
-      {serverState.current === "spectating" && isUpgradeOpen ? (
+      {gs.serverState === "spectating" && gs.isUpgradeOpen ? (
         <Scaled $scale={scale}>
           <UpgradeOverlay picking-mode={PickingMode.Position}>
             <UpgradeOverlayInner picking-mode={PickingMode.Position}>
               <UpgradeGrid
-                upgrades={upgrades}
+                upgrades={gs.upgrades}
                 onUse={(upgradeId) => {
-                  setIsUpgradeOpen(false);
+                  setGameState({ isUpgradeOpen: false });
                   CS.Arken?.Bridge?.Instance?.Emit(
                     "chooseUpgrade",
                     JSON.stringify(upgradeId),
@@ -1163,19 +865,19 @@ export default function () {
 
       {/* <Scaled $scale={scale}> */}
       <BottomCenter picking-mode={PickingMode.Position}>
-        {serverState.current === "none" ? (
+        {gs.serverState === "none" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Connecting
             </Text>
           </StatusCard>
-        ) : serverState.current === "authorizing" ? (
+        ) : gs.serverState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Authorizing
             </Text>
           </StatusCard>
-        ) : serverState.current === "spectating" && profile?.name ? (
+        ) : gs.serverState === "spectating" && gs.profile?.name ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Button
               picking-mode={PickingMode.Position}
@@ -1187,14 +889,13 @@ export default function () {
               </Text>
             </Button>
           </StatusCard>
-        ) : webState.current === "none" ||
-          webState.current === "initializing" ? (
+        ) : gs.webState === "none" || gs.webState === "initializing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Initializing....
             </Text>
           </StatusCard>
-        ) : webState.current === "initialized" && !profile?.name ? (
+        ) : gs.webState === "initialized" && !gs.profile?.name ? (
           <ButtonFrame picking-mode={PickingMode.Position} background>
             <Button
               picking-mode={PickingMode.Position}
@@ -1206,7 +907,7 @@ export default function () {
               </Text>
             </Button>
           </ButtonFrame>
-        ) : webState.current === "authorizing" ? (
+        ) : gs.webState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Authorizing...
@@ -1282,8 +983,7 @@ export default function () {
         </div>
       </BottomRight>
 
-      {serverState.current === "disconnected" &&
-      webState.current === "authorized" ? (
+      {gs.serverState === "disconnected" && gs.webState === "authorized" ? (
         <BottomCenter picking-mode={PickingMode.Position}>
           <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button

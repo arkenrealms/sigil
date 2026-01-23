@@ -9,10 +9,8 @@ declare global {
     namespace Arken {
       namespace Bridge {
         namespace Instance {
-          function add_OnServerEvent(handler: function): void;
-          function remove_OnServerEvent(handler: function): void;
-          function add_OnWebEvent(handler: function): void;
-          function remove_OnWebEvent(handler: function): void;
+          function add_OnStreamEvent(handler: function): void;
+          function remove_OnStreamEvent(handler: function): void;
           function Emit(type: string, payloadJson: string): void;
           function EmitString(type: string, payload: string): void;
           function ShowWeb(path?: string): void;
