@@ -28,6 +28,7 @@
   "dependencies": {
     "@arken/evolution-protocol": "^2.0.14",
     "@arken/seer-protocol": "^0.1.10",
+    "@arken/forge-protocol": "^0.1.6",
     "clsx": "^2.1.1",
     "css-flatten": "^2.0.0",
     "css-simple-parser": "^3.0.0",

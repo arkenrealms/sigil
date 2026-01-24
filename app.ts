@@ -2,10 +2,10 @@
 import { initTRPC } from "@trpc/server";
 import type { RouterContext } from "./types";
 
-import * as Web from "./modules/web/web.router";
+import * as Core from "./modules/core/core.router";
 import * as Game from "./modules/game/game.router";
 
-import { Service as WebService } from "./modules/web/web.service";
+import { Service as CoreService } from "./modules/core/core.service";
 import { Service as GameService } from "./modules/game/game.service";
 
 import { createAppTrpcCaller } from "./util/trpc";
@@ -17,7 +17,7 @@ import { createUnityStreamSocket } from "./util/unityStreamSocket";
 export type AppCtx = RouterContext & {
   app: {
     service: {
-      web: WebService;
+      core: CoreService;
       game: GameService;
     };
     trpc: AppTrpcCaller; // local + remote (same surface)
@@ -35,7 +35,7 @@ function toArgsString(payload: any): string | undefined {
   }
 }
 
-function getProc(router: any, ns: "web" | "game", eventName: string) {
+function getProc(router: any, ns: "core" | "game", eventName: string) {
   return router?.[ns]?.[eventName];
 }
 
@@ -63,7 +63,7 @@ export function createApp() {
 
   const app: any = {
     service: {
-      web: new WebService(),
+      core: new CoreService(),
       game: new GameService(),
     },
     trpc: remoteTrpc, // we’ll augment with local below
@@ -73,12 +73,28 @@ export function createApp() {
   // -------------------------
   // Local routers (run inside this JS runtime)
   // -------------------------
-  const router = t.router({
-    web: Web.createRouter(t),
-    game: Game.createRouter(t),
-  });
+
+  const createRouter = () =>
+    t.router({
+      core: Core.createRouter(t),
+      game: Game.createRouter(t),
+    });
+
+  const router = createRouter();
 
   const ctx = { app } as AppCtx;
+
+  if (!ctx.app?.service?.core) {
+    throw new Error(
+      "[sigil] ctx.app.service.core missing (createCaller ctx is wrong)",
+    );
+  }
+  if (!ctx.app?.service?.game) {
+    throw new Error(
+      "[sigil] ctx.app.service.game missing (createCaller ctx is wrong)",
+    );
+  }
+
   const createCaller = t.createCallerFactory(router);
   const localCaller = createCaller(ctx);
 
@@ -104,26 +120,17 @@ export function createApp() {
     },
   };
 
-  // Create local hook facade for web/game namespaces
+  // Create local hook facade for core/game namespaces
   const localTrpc = createTrpcHooks(localBase, { logging: true });
 
-  // ✅ Merge: keep remote namespaces (seer/evolution/forge), add local (web/game)
-  (app.trpc as any).web = (localTrpc as any).web;
-  (app.trpc as any).game = (localTrpc as any).game;
-
+  // const target = method.split('.').reduce<any>((acc, key) => acc[key], caller);
   // -------------------------
   // Stream -> Local router bindings
   // -------------------------
-  const sigilWebSock = createUnityStreamSocket("sigil.web");
+  const sigilCoreSock = createUnityStreamSocket("sigil.core");
   const sigilGameSock = createUnityStreamSocket("sigil.game");
 
-  // console.log(
-  //   "22222",
-  //   Object.keys(router.web),
-  //   // Object.keys(router?.procedures),
-  //   // Object.keys(router?._def?.procedures.web),
-  // );
-  const bindLocalStream = (ns: "web" | "game", sock: any) => {
+  const bindLocalStream = (ns: "core" | "game", sock: any) => {
     const handler = async (eventName: string, payload: any) => {
       const proc = getProc(router as any, ns, eventName);
       if (!proc) {
@@ -134,19 +141,31 @@ export function createApp() {
 
       const fn = (localCaller as any)?.[ns]?.[eventName];
       if (typeof fn !== "function") {
+        console.warn("[sigil] missing caller fn", {
+          ns,
+          eventName,
+          keys: Object.keys(localCaller as any),
+        });
+        return;
+      }
+
+      try {
+        // existing logic
+        if (procExpectsVoid(proc)) {
+          await fn(undefined);
+        } else {
+          const args = toArgsString(payload);
+          await fn(args === undefined ? undefined : { args });
+        }
+      } catch (e) {
         console.warn(
-          `[sigil] local dispatch: missing caller fn ${ns}.${eventName}`,
+          "[sigil] error calling local route (check route execution)",
+          JSON.stringify({ ns, eventName, payload }),
+          e,
         );
-        return;
-      }
 
-      if (procExpectsVoid(proc)) {
-        await fn(undefined);
-        return;
+        throw e; // keep surfacing through unityStreamSocket
       }
-
-      const args = toArgsString(payload);
-      await fn(args === undefined ? undefined : { args });
     };
 
     sock.onAny(handler);
@@ -165,15 +184,15 @@ export function createApp() {
     };
   };
 
-  const offSigilWeb = bindLocalStream("web", sigilWebSock);
+  const offSigilCore = bindLocalStream("core", sigilCoreSock);
   const offSigilGame = bindLocalStream("game", sigilGameSock);
 
   // Cleanup
   app.detachTrpc = () => {
     try {
-      offSigilWeb();
+      offSigilCore();
     } catch (e) {
-      console.log("E222", "Error detaching sigil web");
+      console.log("E222", "Error detaching sigil core");
     }
     try {
       offSigilGame();
@@ -188,14 +207,14 @@ export function createApp() {
   };
 
   const caller = {
-    sigil: localCaller,
+    sigil: localTrpc,
     // remote namespaces
     seer: app.trpc.seer,
     evolution: app.trpc.evolution,
     forge: app.trpc.forge,
     // local namespaces
-    web: app.trpc.web,
-    game: app.trpc.game,
+    // core: app.trpc.core,
+    // game: app.trpc.game,
   } as const;
 
   return { ...app, t, router, caller, ctx };

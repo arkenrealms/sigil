@@ -59,67 +59,67 @@ export const createRouter = (t: any) =>
       .mutation(({ input, ctx }) => ctx.app.service.game.onUpgrade(input, ctx)),
 
     onClearLeaderboard: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onClearLeaderboard(input, ctx),
       ),
 
     onUpdatePlayer: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onUpdatePlayer(input, ctx),
       ),
 
     onSetPositionMonitor: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onSetPositionMonitor(input, ctx),
       ),
 
     onBroadcast: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onBroadcast(input, ctx),
       ),
 
     onHideMinimap: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onHideMinimap(input, ctx),
       ),
 
     onOpenLevel2: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onOpenLevel2(input, ctx),
       ),
 
     onSpawnPowerUp: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onSpawnPowerUp(input, ctx),
       ),
 
     onUpdateBestClient: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onUpdateBestClient(input, ctx),
       ),
 
     onSpawnClient: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onSpawnClient(input, ctx),
       ),
 
     onUpdatePickup: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onUpdatePickup(input, ctx),
       ),
 
     onUpdateEvolution: t.procedure
-      .input(z.void())
+      .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onUpdateEvolution(input, ctx),
       ),

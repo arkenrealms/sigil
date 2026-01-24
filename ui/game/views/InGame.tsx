@@ -34,31 +34,9 @@ import { useGameStore, setGameState } from "../state/useGameStore";
 
 const app = getApp();
 
-// const trpc = getUnityTrpc();
-
-// // const action = (actionId: string) =>
-//   // trpc.evolution.shard.action.mutate(actionId);
-// // const emitEmote = (emoteId: string) => trpc.shard.emote.mutate(emoteId);
-// const load = () => trpc.evolution.shard.load.mutate(); // or mutate(undefined)
-// const join = () => trpc.evolution.shard.join.mutate();
-
-// const action = (actionId: string) =>
-//   CS.Arken.Bridge.Instance?.Emit("action", JSON.stringify(actionId));
-// const emitEmote = (emoteId: string) =>
-//   CS.Arken.Bridge.Instance?.Emit("emote", JSON.stringify(emoteId));
-// const load = () =>
-//   CS?.Arken?.Bridge?.Instance?.Emit?.("load", JSON.stringify([]));
-// const join = () => {
-//   // CS?.Arken?.Evolution?.NetworkManager?.Instance?.Reconnect();
-
-//   // setTimeout(function () {
-//   CS?.Arken?.Bridge?.Instance?.Emit?.("join", JSON.stringify([]));
-//   // }, 2000);
-// };
-// const showLogin = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/login");
-const showInbox = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/inbox");
-const showSkills = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/skills");
-const showTrek = () => CS?.Arken?.Bridge?.Instance?.NavigateWeb("/trek");
+const showInbox = () => app.trpc.forge.core.navigate.mutate("/inbox");
+const showSkills = () => app.trpc.forge.core.navigate.mutate("/skills");
+const showTrek = () => app.trpc.forge.core.navigate.mutate("/trek");
 
 type PersistedInGame = {
   roundId: string;
@@ -540,20 +518,6 @@ function rewardDescriptions(name: string) {
 export default function () {
   const [modal, setModal] = useState<ModalKey>(null);
 
-  // const serverState = useRef<ServerState>("none");
-  // const [_serverState, _setServerState] = useState<ServerState>("none");
-  // function setServerState(next: ServerState) {
-  //   gs.serverState = next;
-  //   _setServerState(next);
-  // }
-
-  // const webState = useRef<WebState>("none");
-  // const [_webState, _setWebState] = useState<WebState>("none");
-  // function setWebState(next: WebState) {
-  //   gs.webState = next;
-  //   _setWebState(next);
-  // }
-
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
   const zoom = clamp(zoomRaw, 50, 150);
@@ -561,20 +525,6 @@ export default function () {
 
   const lb = useLeaderboard();
 
-  // // Game info driven by C# event
-  // const [gameInfo, setGameInfo] = useState<GameInfo>({});
-  // const [serverTimerSec, setServerTimerSec] = useState<number | null>(null);
-
-  // // Reward popup driven by onSpawnReward / onUpdateReward
-  // const [reward, setReward] = useState<Reward | null>(null);
-
-  // const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-  // const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
-
-  // ✅ round id (derived from onSetRoundInfo)
-  // const [roundId, setRoundId] = useState<string>("");
-
-  // ✅ keep cached payload around until we can validate with roundId
   const cachedRef = useRef<PersistedInGame | null>(null);
   const hasHydratedRef = useRef(false);
   // const [profile, setProfile] = useState(null);
@@ -584,9 +534,6 @@ export default function () {
   const action = app.trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
   const load = app.trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
   const join = app.trpc.evolution.shard.join.useMutation(); //join.mutateAsync();
-  // const login = app.trpc.evolution.shard.login.useMutation(); //join.mutateAsync();
-
-  // const emote = app.trpc.evolution.shard.emote.useMutation();
   const showLogin = app.trpc.forge.core.showLogin.useMutation();
 
   // useEffect(() => {
@@ -868,13 +815,13 @@ export default function () {
         {gs.serverState === "none" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
-              Connecting
+              Connecting to realm...
             </Text>
           </StatusCard>
         ) : gs.serverState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
-              Authorizing
+              Authorizing with realm...
             </Text>
           </StatusCard>
         ) : gs.serverState === "spectating" && gs.profile?.name ? (
@@ -892,7 +839,7 @@ export default function () {
         ) : gs.webState === "none" || gs.webState === "initializing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
-              Initializing....
+              Realm connected. Now omniverse....
             </Text>
           </StatusCard>
         ) : gs.webState === "initialized" && !gs.profile?.name ? (
@@ -910,7 +857,7 @@ export default function () {
         ) : gs.webState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
-              Authorizing...
+              Authorizing with omniverse...
             </Text>
           </StatusCard>
         ) : null}

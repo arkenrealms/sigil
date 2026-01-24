@@ -6,7 +6,7 @@ export type StreamName =
   | "evolutionShard"
   | "evolutionRealm"
   | "forge"
-  | "sigil.web"
+  | "sigil.core"
   | "sigil.game";
 
 type AnyListener = (eventName: string, payload: any) => void;
@@ -122,7 +122,7 @@ function ensureDispatcher(): Dispatcher {
           (r as Promise<any>).catch((e) => {
             console.warn(
               "[unityStreamSocket] listener error (async)",
-              { stream, eventName },
+              JSON.stringify({ stream, eventName, payload }),
               e,
             );
           });

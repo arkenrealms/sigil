@@ -33,7 +33,6 @@
     "data/actions.ts",
     "data/bars.ts",
     "app.ts",
-    "appInstance.ts",
-    "app.router.ts"
+    "appInstance.ts"
   ]
 }

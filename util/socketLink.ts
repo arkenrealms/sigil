@@ -123,7 +123,10 @@ export function createSocketLink(
           const { input } = op;
 
           const routes = op.path.split(".");
-          const method = routes[routes.length - 1]; // TODO: wont be sufficient.
+          const method =
+            routerName === "forge"
+              ? routes.join(".")
+              : routes[routes.length - 1]; // TODO: wont be sufficient.
 
           // 2) Emit the request
           client.socket.emit("trpc", {

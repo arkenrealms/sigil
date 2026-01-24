@@ -94,6 +94,9 @@ export class Service {
   }
 
   onLogin(input: any, ctx: any) {
+    const gs = getGameState();
+    if (gs.serverState !== "authorizing") return;
+
     setGameState({ serverState: "joining" });
   }
 

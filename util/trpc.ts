@@ -33,7 +33,7 @@ function notifyTRPCError(err: any) {
 }
 
 // ✅ only remote unity backends (exclude local sigil.* streams)
-type Route = Exclude<StreamName, "sigil.web" | "sigil.game">;
+type Route = Exclude<StreamName, "sigil.core" | "sigil.game">;
 
 const backends: BackendConfig[] = [
   { name: "seer", url: "unity" },
@@ -63,8 +63,7 @@ function parseOpPath(opPath: string): { route: Route; method: string } {
   }
 
   if (backend === "forge") {
-    // forge.core.showLogin -> "forge.core.showLogin"
-    return { route: "forge", method: ["forge", ...rest].join(".") };
+    return { route: "forge", method: rest.join(".") };
   }
 
   if (backend === "evolution") {
@@ -146,12 +145,15 @@ export function createAppTrpcCaller(opts?: {
       const rewrittenOp = { ...op, path: `${route}.${method}` };
 
       if (logging) {
-        console.info("[trpc] op", {
-          original: op.path,
-          rewritten: rewrittenOp.path,
-          type: op.type,
-          input: op.input,
-        });
+        console.info(
+          "[trpc] op",
+          JSON.stringify({
+            original: op.path,
+            rewritten: rewrittenOp.path,
+            type: op.type,
+            input: op.input,
+          }),
+        );
       }
 
       return inner({ op: rewrittenOp, next });
