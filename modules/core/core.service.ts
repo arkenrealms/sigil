@@ -8,19 +8,6 @@ import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
 import { ensureManagedScenes, onChangeGame } from "../../util/unity/scene";
 
-const managed = [
-  "Entry",
-  "Shared",
-  // "E_UI",
-  "E_Pool",
-  "Sound",
-  "E_Game",
-  "R_Game",
-  "E_MageIsles",
-  "E_MemeIsles",
-  "E_EndOfTime",
-];
-
 export class Service {
   // async onBridgeInitialized(input, { app }) {
   //   console.log(
@@ -46,11 +33,26 @@ export class Service {
   async onAppInitializing(input, { app }) {
     console.log("Sigil.Service.Core.onAppInitializing", JSON.stringify(input));
 
-    app.settings = { appState: "initializing", info: input };
+    app.settings = {
+      appState: "initializing",
+      serverState: "none",
+      webState: "initializing",
+      info: input,
+    };
 
-    const desired = ["Shared", "R_Game", "Sound"];
-    await ensureManagedScenes(desired, {
-      managedScenes: managed,
+    await ensureManagedScenes(["Shared", "R_Game", "Sound"], {
+      managedScenes: [
+        "Entry",
+        "Shared",
+        // "E_UI",
+        "E_Pool",
+        "Sound",
+        "E_Game",
+        "R_Game",
+        "E_MageIsles",
+        "E_MemeIsles",
+        "E_EndOfTime",
+      ],
       logging: true,
       // Keep sequential loading unless you *know* parallel is safe
       parallel: false,
@@ -72,19 +74,19 @@ export class Service {
     if (app.settings.webState !== "authorized") return;
     if (app.settings.appState !== "initialized") return;
 
-    // Equivalent to old OnGameStart setup
-    CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Evolution;
-
-    const desired = ["Shared", "E_Game", "E_Pool", "Sound", "E_MageIsles"];
-
-    await ensureManagedScenes(desired, {
-      managedScenes: managed,
-      logging: true,
-      // Keep sequential loading unless you *know* parallel is safe
-      parallel: false,
+    const res2 = await app.trpc.seer.core.play.query({
+      appIdentifier: app.settings.info.identifier,
     });
 
-    CS.Arken.Evolution.NetworkManager.Instance.Connect();
+    console.log("onClick core.play", JSON.stringify(res2));
+
+    if (res2.type === "shard") {
+      app.settings = { serverState: "connecting" };
+
+      // CS.Arken.Evolution.NetworkManager.Instance.serverAddress = res2.address;
+
+      CS.Arken.Evolution.NetworkManager.Instance.Connect(res2.address);
+    }
   }
 
   async onWebInitialized(input, { app }) {
@@ -148,11 +150,11 @@ export class Service {
       appIdentifier: app.settings.info.identifier, // gg.arken.realms gg.arken.evolution gg.arken.infinite gg.arken.trek
     });
 
-    console.log("onWebAuthorized res", res);
+    console.log("onWebAuthorized core.authorize", res);
 
     const profile = await app.trpc.seer.profile.me.query();
 
-    console.log("onWebAuthorized profile", profile);
+    console.log("onWebAuthorized profile.me", JSON.stringify(profile));
 
     app.settings = { profile: input, webState: "authorized" };
 

@@ -127,9 +127,7 @@ function ensureDispatcher(clients: any): Dispatcher {
       try {
         if (client.ioCallbacks[id]) {
           clearTimeout(client.ioCallbacks[id].timeout);
-          client.ioCallbacks[id].resolve({
-            result: { status: 1, data: pack.data },
-          });
+          client.ioCallbacks[id].resolve(pack);
           delete client.ioCallbacks[id];
         }
       } catch (e) {

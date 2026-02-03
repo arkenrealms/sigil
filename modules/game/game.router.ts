@@ -4,6 +4,18 @@ import { z } from "zod";
 
 export const createRouter = (t: any) =>
   t.router({
+    onConnected: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onConnected(input, ctx),
+      ),
+
+    onDisconnected: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onDisconnected(input, ctx),
+      ),
+
     onLoaded: t.procedure
       .input(z.number())
       .mutation(({ input, ctx }) => ctx.app.service.game.onLoaded(input, ctx)),
@@ -28,12 +40,6 @@ export const createRouter = (t: any) =>
       .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onGameOver(input, ctx),
-      ),
-
-    onDisconnected: t.procedure
-      .input(z.any())
-      .mutation(({ input, ctx }) =>
-        ctx.app.service.game.onDisconnected(input, ctx),
       ),
 
     onSetRoundInfo: t.procedure

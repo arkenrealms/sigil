@@ -3,6 +3,7 @@
 // import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
 import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
+import { ensureManagedScenes, onChangeGame } from "../../util/unity/scene";
 
 declare const CS: any;
 
@@ -50,58 +51,115 @@ function rewardDescriptions(name: string) {
 }
 
 export class Service {
+  async onConnected(input: any, { app }) {
+    console.log(
+      "Sigil.Service.Game.onConnected",
+      JSON.stringify(input),
+      app.settings.serverState,
+    );
+    if (app.settings.serverState !== "connecting") return;
+
+    app.settings = { serverState: "loading" };
+
+    await app.trpc.evolution.shard.load.mutate();
+  }
+
+  async onDisconnected(input: any, { app }) {
+    console.log("Sigil.Service.Game.onDisconnected", JSON.stringify(input));
+    CS.Arken.Evolution.NetworkManager.Instance.ResetGame();
+
+    app.settings = {
+      serverState: "disconnected",
+      reward: null,
+      isUpgradeOpen: false,
+      upgrades: [],
+    };
+  }
+
   /**
    * Trigger: Unity emits "onLoaded" -> router -> service.
    * ✅ Service does NOT care about transport.
    * It calls ctx.app.trpc.<backend>.<router>.<proc>
    */
   async onLoaded(input: any, { app }) {
-    const auth: any = app.settings.auth;
-
     console.log(
-      "Service.Game.onLoaded",
+      "Sigil.Service.Game.onLoaded",
       JSON.stringify(input),
-      JSON.stringify(auth),
-      // { app },
+      app.settings.serverState,
     );
+    if (app.settings.serverState !== "loading") return;
 
-    if (isValidAuth(auth)) {
-      app.settings = { serverState: "authorizing" };
+    // if (isValidAuth(auth)) {
+    //   app.settings = { serverState: "authorizing" };
 
-      // Keep native var in sync if you still use it on C# side
-      if (CS?.Arken?.Evolution?.NetworkManager?.Instance) {
-        CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
-          auth.address;
-      }
+    //   // Keep native var in sync if you still use it on C# side
+    //   if (CS?.Arken?.Evolution?.NetworkManager?.Instance) {
+    //     CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
+    //       auth.address;
+    //   }
 
-      // ✅ Transport-agnostic RPC call
-      await app.trpc.evolution.shard.login.mutate({
-        name: auth.name,
-        network: "bsc",
-        address: auth.address,
-        device: "desktop",
-        signature: auth.token,
-        version: "1.9.0",
-      });
+    //   // ✅ Transport-agnostic RPC call
+    //   await app.trpc.evolution.shard.login.mutate({
+    //     name: auth.name,
+    //     network: "bsc",
+    //     address: auth.address,
+    //     device: "desktop",
+    //     signature: auth.token,
+    //     version: "1.9.0",
+    //   });
 
-      return;
-    }
+    //   return;
+    // }
 
     // ✅ important: if invalid auth exists, wipe it so you don't loop forever
-    if (auth) {
-      app.settings = { auth: undefined };
-    }
+    // if (auth) {
+    //   app.settings = { auth: undefined };
+    // }
 
-    app.settings = { serverState: "loading" };
+    // Equivalent to old OnGameStart setup
+    CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Evolution;
+
+    await ensureManagedScenes(
+      ["Shared", "E_Game", "E_Pool", "Sound", "E_MageIsles"],
+      {
+        managedScenes: [
+          "Entry",
+          "Shared",
+          // "E_UI",
+          "E_Pool",
+          "Sound",
+          "E_Game",
+          "R_Game",
+          "E_MageIsles",
+          "E_MemeIsles",
+          "E_EndOfTime",
+        ],
+        logging: true,
+        // Keep sequential loading unless you *know* parallel is safe
+        parallel: false,
+      },
+    );
+
+    app.settings = { serverState: "loaded" };
+
+    app.service.network.checkConnections(null, { app });
   }
 
-  onLogin(input: any, { app }) {
+  async onLogin(input: any, { app }) {
+    console.log(
+      "Sigil.Service.Game.onLogin",
+      JSON.stringify(input),
+      app.settings.serverState,
+    );
     if (app.settings.serverState !== "authorizing") return;
+
+    await app.trpc.evolution.shard.join.mutate();
 
     app.settings = { serverState: "joining" };
   }
 
   onJoinGame(input: any, { app }) {
+    console.log("Sigil.Service.Game.onJoinGame", JSON.stringify(input));
     app.settings = { serverState: "joined" };
   }
 
@@ -111,15 +169,6 @@ export class Service {
 
   onGameOver(input: any, { app }) {
     app.settings = { serverState: "spectating" };
-  }
-
-  onDisconnected(input: any, { app }) {
-    app.settings = {
-      serverState: "disconnected",
-      reward: null,
-      isUpgradeOpen: false,
-      upgrades: [],
-    };
   }
 
   onSetRoundInfo(input: { args: string }, { app }) {

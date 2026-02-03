@@ -1,6 +1,4 @@
 // arken/sigil/modules/network/network.service.ts
-import { getAppData, setAppData } from "../../ui/game/state/useAppData";
-
 export class Service {
   async checkConnections(input: any, { app }) {
     console.log(
@@ -8,18 +6,20 @@ export class Service {
       JSON.stringify(input),
     );
 
-    if (app.settings.serverState === "loading") {
-      setAppData({ serverState: "authorizing" });
+    if (app.settings.webState !== "authorized") return;
+
+    if (app.settings.serverState === "loaded") {
+      app.settings = { serverState: "authorizing" };
 
       CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress =
-        input.address;
+        app.settings.auth.address;
 
       await app.trpc.evolution.shard.login.mutate({
-        name: input.name,
+        name: app.settings.auth.name,
         network: "bsc",
-        address: input.address,
+        address: app.settings.auth.address,
         device: "desktop",
-        signature: input.token,
+        signature: app.settings.auth.token,
         version: "1.9.0",
       });
     }
