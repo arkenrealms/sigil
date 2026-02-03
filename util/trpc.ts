@@ -21,7 +21,10 @@ const waitUntil: WaitUntilFn = (predicate, timeoutMs, intervalMs = 25) => {
   return new Promise<void>((resolve, reject) => {
     const tick = () => {
       if (predicate()) return resolve();
-      if (Date.now() - start > timeoutMs) return reject(new Error("timeout"));
+      if (Date.now() - start > timeoutMs) {
+        console.log("waitUntil reject");
+        return reject(new Error("timeout"));
+      }
       setTimeout(tick, intervalMs);
     };
     tick();
@@ -101,7 +104,7 @@ export function createAppTrpcCaller(opts?: {
 
     const sock =
       streamSockets[route] ??
-      (streamSockets[route] = createUnityStreamSocket(route));
+      (streamSockets[route] = createUnityStreamSocket(route, clients));
 
     const client: SocketClient = {
       ioCallbacks: {},
@@ -140,23 +143,28 @@ export function createAppTrpcCaller(opts?: {
     const inner = baseLink(runtime);
 
     return (ctx: any) => {
-      const { op, next } = ctx;
-      const { route, method } = parseOpPath(op.path);
-      const rewrittenOp = { ...op, path: `${route}.${method}` };
+      try {
+        const { op, next } = ctx;
+        const { route, method } = parseOpPath(op.path);
+        const rewrittenOp = { ...op, path: `${route}.${method}` };
 
-      if (logging) {
-        console.info(
-          "[trpc] op",
-          JSON.stringify({
-            original: op.path,
-            rewritten: rewrittenOp.path,
-            type: op.type,
-            input: op.input,
-          }),
-        );
+        if (logging) {
+          console.info(
+            "[trpc] op",
+            JSON.stringify({
+              original: op.path,
+              rewritten: rewrittenOp.path,
+              type: op.type,
+              input: op.input,
+            }),
+          );
+        }
+
+        return inner({ op: rewrittenOp, next });
+      } catch (e) {
+        console.log("routedLink baseLink error", e);
+        throw e;
       }
-
-      return inner({ op: rewrittenOp, next });
     };
   };
 
@@ -175,6 +183,8 @@ export function createAppTrpcCaller(opts?: {
 
   return {
     hooks: hooks as AppTrpcCaller,
+
+    clients,
 
     detach() {
       try {

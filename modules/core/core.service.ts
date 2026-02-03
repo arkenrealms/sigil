@@ -1,34 +1,112 @@
 // arken/sigil/modules/core/core.service.ts
-import {
-  loadPrefsJson,
-  savePrefsJson,
-  clearPrefs,
-} from "../../ui/core/state/persist";
-import { getGameState, setGameState } from "../../ui/game/state/useGameStore";
+// import {
+//   loadPrefsJson,
+//   savePrefsJson,
+//   clearPrefs,
+// } from "../../ui/core/state/persist";
+import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
+import { ensureManagedScenes, onChangeGame } from "../../util/unity/scene";
+
+const managed = [
+  "Entry",
+  "Shared",
+  // "E_UI",
+  "E_Pool",
+  "Sound",
+  "E_Game",
+  "R_Game",
+  "E_MageIsles",
+  "E_MemeIsles",
+  "E_EndOfTime",
+];
 
 export class Service {
-  onInitializing(input?: { args?: string }) {
-    console.log("Sigil.Service.Core.onInitializing", JSON.stringify(input));
+  // async onBridgeInitialized(input, { app }) {
+  //   console.log(
+  //     "Sigil.Service.Core.onBridgeInitialized",
+  //     JSON.stringify(input),
+  //   );
 
-    setGameState({ webState: "initializing" });
+  //   // setTimeout(() => this.onAppInitializing(input, { app }), 0);
+  //   // await this.onAppInitializing(input, { app });
+  //   // CS.Arken.Bridge.Instance.HandleWebviewEvent(
+  //   //   "sigil.core",
+  //   //   "onAppInitializing",
+  //   //   JSON.stringify({
+  //   //     productName: CS.UnityEngine.Application.productName,
+  //   //     companyName: CS.UnityEngine.Application.companyName,
+  //   //     identifier: CS.UnityEngine.Application.identifier,
+  //   //     version: CS.UnityEngine.Application.version,
+  //   //     platform: CS.UnityEngine.Application.platform,
+  //   //   }),
+  //   // );
+  // }
+
+  async onAppInitializing(input, { app }) {
+    console.log("Sigil.Service.Core.onAppInitializing", JSON.stringify(input));
+
+    app.settings = { appState: "initializing", info: input };
+
+    const desired = ["Shared", "R_Game", "Sound"];
+    await ensureManagedScenes(desired, {
+      managedScenes: managed,
+      logging: true,
+      // Keep sequential loading unless you *know* parallel is safe
+      parallel: false,
+    });
+
+    app.settings = { appState: "initialized" };
   }
 
-  async onInitialized(input?: { args?: string }, ctx?: any) {
-    console.log("Sigil.Service.Core.onInitialized", JSON.stringify(input));
+  async onWebInitializing(input, { app }) {
+    console.log("Sigil.Service.Core.onWebInitializing", JSON.stringify(input));
 
-    const gs = getGameState();
+    app.settings = { webState: "initializing" };
+  }
 
-    if (gs.webState !== "initializing") return;
+  async onClick(input: any, { app }) {
+    console.log("Sigil.Service.Core.onClick", JSON.stringify(input));
 
-    setGameState({ webState: "initialized" });
+    if (input.name !== "Portal") return;
+    if (app.settings.webState !== "authorized") return;
+    if (app.settings.appState !== "initialized") return;
 
-    const auth = loadPrefsJson("auth");
+    // Equivalent to old OnGameStart setup
+    CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Evolution;
+
+    const desired = ["Shared", "E_Game", "E_Pool", "Sound", "E_MageIsles"];
+
+    await ensureManagedScenes(desired, {
+      managedScenes: managed,
+      logging: true,
+      // Keep sequential loading unless you *know* parallel is safe
+      parallel: false,
+    });
+
+    CS.Arken.Evolution.NetworkManager.Instance.Connect();
+  }
+
+  async onWebInitialized(input, { app }) {
+    console.log(
+      "Sigil.Service.Core.onWebInitialized",
+      JSON.stringify(input),
+      JSON.stringify(app.settings),
+    );
+
+    if (app.settings.webState !== "initializing") return;
+
+    // app.settings = { webState: "initialized" };
+
+    // const auth = loadPrefsJson("auth");
+    const auth = app.settings.auth;
 
     if (isValidAuth(auth)) {
-      setGameState({ webState: "authorizing" });
+      app.settings = { auth, webState: "authorizing" };
 
-      await ctx.app.trpc.forge.core.authorize.mutate(auth);
+      await app.trpc.forge.core.authorize.mutate(auth);
+
+      console.log("aaaaaa authorized");
       //   CS?.Arken?.Bridge?.Instance?.Authorize?.(JSON.stringify(auth));
 
       // Arken.SeerClient.Instance.Emit("core.authorize", jo);
@@ -36,43 +114,48 @@ export class Service {
       // Arken.Web.WebCommunicator.Instance.Execute(
       //     $"window.unity.authorize({auth});"
       // );
-    } else if (auth) {
-      clearPrefs("auth"); // ✅ prevent infinite bad authorize attempts
+    } else {
+      // clearPrefs("auth"); // ✅ prevent infinite bad authorize attempts
+      app.settings = { auth: undefined };
     }
   }
 
-  async onAuthorized(input: { args: string }, ctx: any) {
-    console.log("Sigil.Service.Core.onAuthorized", JSON.stringify(input));
+  onWebviewError(input: string, { app }) {
+    if (input === "CloudflareBadGateway") {
+      app.settings = { webState: "error" };
+    }
+  }
 
-    const gs = getGameState();
+  async onWebAuthorized(input: any, { app }) {
+    console.log("Sigil.Service.Core.onWebAuthorized", JSON.stringify(input));
 
-    if (gs.webState !== "authorizing") return;
+    if (app.settings.webState !== "authorizing") return;
 
-    const auth = JSON.parse(input.args);
-    setGameState({ profile: auth });
-
-    if (!isValidAuth(auth)) {
-      clearPrefs("auth");
-      setGameState({ webState: "initialized" }); // or "none" if you prefer
+    if (!isValidAuth(input)) {
+      app.settings = { webState: "none", auth: undefined };
+      // setAppData({ webState: "none" }); // or error if you prefer
       return;
     }
 
-    savePrefsJson("auth", auth);
-    setGameState({ webState: "authorized" });
+    app.settings = { auth: input };
 
-    if (gs.serverState === "loading") {
-      setGameState({ serverState: "authorizing" });
+    console.log("onAuthorize seer.core.authorize", input);
 
-      CS.Arken.Evolution.NetworkManager.Instance.myPlayerAddress = auth.address;
+    const res = await app.trpc.seer.core.authorize.mutate({
+      data: "evolution",
+      address: input.address,
+      token: input.token,
+      appIdentifier: app.settings.info.identifier, // gg.arken.realms gg.arken.evolution gg.arken.infinite gg.arken.trek
+    });
 
-      await ctx.app.trpc.evolution.shard.login.mutate({
-        name: auth.name,
-        network: "bsc",
-        address: auth.address,
-        device: "desktop",
-        signature: auth.token,
-        version: "1.9.0",
-      });
-    }
+    console.log("onWebAuthorized res", res);
+
+    const profile = await app.trpc.seer.profile.me.query();
+
+    console.log("onWebAuthorized profile", profile);
+
+    app.settings = { profile: input, webState: "authorized" };
+
+    app.service.network.checkConnections(null, { app });
   }
 }

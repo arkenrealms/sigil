@@ -6,7 +6,23 @@ export {};
 
 declare global {
   namespace CS {
+    namespace Newtonsoft {
+      namespace Json {
+        namespace JsonConvert {
+          function SerializeObject(arg: any): any;
+        }
+      }
+    }
+    namespace LoaderHandler {
+      const Instance: any;
+    }
     namespace Arken {
+      namespace LoaderHandler {
+        const Instance: any;
+      }
+      namespace ArkenGame {
+        const Evolution: any;
+      }
       namespace Bridge {
         namespace Instance {
           function add_OnStreamEvent(handler: function): void;
@@ -17,6 +33,12 @@ declare global {
           function HideWeb(): void;
           function NavigateWeb(path?: string): void;
           function Authorize(payload: string): void;
+          function ChangeScene(sceneName: string): void;
+          function HandleWebviewEvent(
+            ns: string,
+            method: string,
+            args: any,
+          ): void;
         }
       }
 

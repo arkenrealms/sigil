@@ -87,7 +87,7 @@ function replayBuffered(d: Dispatcher, stream: StreamName, cb: AnyListener) {
   }
 }
 
-function ensureDispatcher(): Dispatcher {
+function ensureDispatcher(clients: any): Dispatcher {
   if (dispatcher) return dispatcher;
 
   const bridge = getBridge();
@@ -98,9 +98,46 @@ function ensureDispatcher(): Dispatcher {
     Map<string, Map<(payload: any) => void, AnyListener>>
   >();
 
-  const handler = (streamName: string, eventName: string, args: string) => {
+  const streamEventHandler = (
+    streamName: string,
+    eventName: string,
+    args: any,
+  ) => {
     if (!["onUpdatePlayer", "onSpawnPowerUp"].includes(eventName))
       console.log("[sigil] OnStreamEvent", streamName, eventName, args);
+
+    if (eventName === "trpcResponse") {
+      const client = clients[streamName];
+      // console.log(client.ioCallbacks?.[payload.id]?.())
+
+      const pack = typeof args === "string" ? JSON.parse(args) : args;
+      const { id } = pack;
+
+      if (pack.error) {
+        console.log(
+          "Local stream client callback - error occurred",
+          pack,
+          client.ioCallbacks[id] ? client.ioCallbacks[id].request : "",
+        );
+        return;
+      }
+
+      console.log("aaaaaa", id, client.ioCallbacks[id]);
+
+      try {
+        if (client.ioCallbacks[id]) {
+          clearTimeout(client.ioCallbacks[id].timeout);
+          client.ioCallbacks[id].resolve({
+            result: { status: 1, data: pack.data },
+          });
+          delete client.ioCallbacks[id];
+        }
+      } catch (e) {
+        console.log("Local stream client trpcResponse error", id, e);
+      }
+
+      return;
+    }
 
     const stream = streamName as StreamName;
     const payload = safeJsonParseArgs(args);
@@ -137,12 +174,70 @@ function ensureDispatcher(): Dispatcher {
     }
   };
 
-  const add = bridge.add_OnStreamEvent?.bind(bridge);
-  const remove = bridge.remove_OnStreamEvent?.bind(bridge);
+  // const clickEventHandler = (
+  //   streamName: string,
+  //   eventName: string,
+  //   args: any,
+  // ) => {
+  //   if (!["onUpdatePlayer", "onSpawnPowerUp"].includes(eventName))
+  //     console.log("[sigil] OnStreamEvent", streamName, eventName, args);
 
-  if (typeof add !== "function" || typeof remove !== "function") {
+  //   const stream = streamName as StreamName;
+  //   const payload = safeJsonParseArgs(args);
+
+  //   // ✅ Always buffer (fixes startup race)
+  //   if (dispatcher) {
+  //     pushBuffered(dispatcher, stream, { eventName, payload });
+  //   }
+
+  //   const listeners = perStream.get(stream);
+  //   if (!listeners || listeners.size === 0) return;
+
+  //   for (const l of listeners) {
+  //     try {
+  //       const r = (l as any)(eventName, payload);
+
+  //       // ✅ If listener is async, surface errors instead of silently losing them
+  //       if (r && typeof (r as any).then === "function") {
+  //         (r as Promise<any>).catch((e) => {
+  //           console.warn(
+  //             "[unityStreamSocket] listener error (async)",
+  //             JSON.stringify({ stream, eventName, payload }),
+  //             e,
+  //           );
+  //         });
+  //       }
+  //     } catch (e) {
+  //       console.warn(
+  //         "[unityStreamSocket] listener error (sync)",
+  //         { stream, eventName },
+  //         e,
+  //       );
+  //     }
+  //   }
+  // };
+
+  const addStreamEventHandler = bridge.add_OnStreamEvent?.bind(bridge);
+  const removeStreamEventHandler = bridge.remove_OnStreamEvent?.bind(bridge);
+
+  if (
+    typeof addStreamEventHandler !== "function" ||
+    typeof removeStreamEventHandler !== "function"
+  ) {
     throw new Error(
       "[unityStreamSocket] Bridge missing add/remove_OnStreamEvent",
+    );
+  }
+
+  const addClickEventHandler = bridge.add_OnClickEvent?.bind(bridge);
+  const removeClickEventHandler = bridge.remove_OnClickEvent?.bind(bridge);
+
+  if (
+    typeof addClickEventHandler !== "function" ||
+    typeof removeClickEventHandler !== "function"
+  ) {
+    throw new Error(
+      "[unityClickSocket] Bridge missing add/remove_OnClickEvent",
     );
   }
 
@@ -157,12 +252,14 @@ function ensureDispatcher(): Dispatcher {
 
     attach: () => {
       if (dispatcher?.attached) return;
-      add(handler);
+      addStreamEventHandler(streamEventHandler);
+      addClickEventHandler(streamEventHandler);
       if (dispatcher) dispatcher.attached = true;
     },
     detach: () => {
       if (!dispatcher?.attached) return;
-      remove(handler);
+      removeStreamEventHandler(streamEventHandler);
+      removeClickEventHandler(streamEventHandler);
       if (dispatcher) dispatcher.attached = false;
     },
   };
@@ -214,8 +311,8 @@ function cleanupStreamMapsIfEmpty(d: Dispatcher, stream: StreamName) {
   if (perEventEmpty) d.perStreamPerEvent.delete(stream);
 }
 
-export function createUnityStreamSocket(stream: StreamName) {
-  const d = ensureDispatcher();
+export function createUnityStreamSocket(stream: StreamName, clients: any) {
+  const d = ensureDispatcher(clients);
 
   d.refCount += 1;
   if (d.refCount === 1) d.attach();

@@ -10,22 +10,51 @@ import {
 
 export const createRouter = (t: any) =>
   t.router({
-    onInitializing: t.procedure
-      .input(z.object({ args: z.string().optional() }).optional())
+    onClick: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) => ctx.app.service.core.onClick(input, ctx)),
+
+    onAppInitializing: t.procedure
+      .input(z.any())
       .mutation(({ input, ctx }) =>
-        ctx.app.service.core.onInitializing(input, ctx),
+        ctx.app.service.core.onAppInitializing(input, ctx),
       ),
 
-    onInitialized: t.procedure
-      .input(z.object({ args: z.string().optional() }).optional())
+    onWebviewError: t.procedure
+      .input(z.string())
       .mutation(({ input, ctx }) =>
-        ctx.app.service.core.onInitialized(input, ctx),
+        ctx.app.service.core.onWebviewError(input, ctx),
+      ),
+
+    onWebInitializing: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onWebInitializing(input, ctx),
+      ),
+
+    onWebInitialized: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onWebInitialized(input, ctx),
+      ),
+
+    // deprecated
+    onInitialized: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onWebInitialized(input, ctx),
+      ),
+
+    onWebAuthorized: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onWebAuthorized(input, ctx),
       ),
 
     onAuthorized: t.procedure
-      .input(z.object({ args: z.string() }))
+      .input(z.any())
       .mutation(({ input, ctx }) =>
-        ctx.app.service.core.onAuthorized(input, ctx),
+        ctx.app.service.core.onWebAuthorized(input, ctx),
       ),
   });
 

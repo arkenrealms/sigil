@@ -9,12 +9,6 @@ import bars from "../../../data/bars";
 import { Hud, HudSpec } from "../components/Hud";
 import { Icon } from "../../core/components/Icon";
 import { useLeaderboard } from "../state/useLeaderboard";
-import {
-  debugPrefs,
-  loadPrefsJson,
-  savePrefsJson,
-  clearPrefs,
-} from "../../core/state/persist";
 import UpgradeGrid from "../components/UpgradeGrid";
 import { PartyDockContent } from "./InGame/PartyDockContent";
 import { QuestDockContent } from "./InGame/QuestDockContent";
@@ -30,7 +24,7 @@ import { SettingsPanel } from "../components/SettingsPanel";
 import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
 import { getApp } from "../../../appInstance";
-import { useGameStore, setGameState } from "../state/useGameStore";
+import { useAppData, setAppData } from "../state/useAppData";
 
 const app = getApp();
 
@@ -529,7 +523,7 @@ export default function () {
   const hasHydratedRef = useRef(false);
   // const [profile, setProfile] = useState(null);
 
-  const gs = useGameStore();
+  const gs = useAppData();
 
   const action = app.trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
   const load = app.trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
@@ -567,78 +561,90 @@ export default function () {
   //   return () => detach?.();
   // }, []);
 
-  useEffect(() => {
-    console.log(
-      "[InGame][store] render",
-      JSON.stringify({
-        serverState: gs.serverState,
-        webState: gs.webState,
-        hasProfile: !!gs.profile,
-        roundId: gs.roundId,
-        reward: gs.reward?.rewardItemName,
-        timer: gs.serverTimerSec,
-      }),
-    );
-  }, [gs]);
+  // useEffect(() => {
+  //   console.log(
+  //     "[InGame][store] render",
+  //     JSON.stringify({
+  //       serverState: app.settings.serverState,
+  //       webState: app.settings.webState,
+  //       hasProfile: !!app.settings.profile,
+  //       roundId: app.settings.roundId,
+  //       reward: app.settings.reward?.rewardItemName,
+  //       timer: app.settings.serverTimerSec,
+  //     }),
+  //   );
+  // }, [gs]);
 
-  useEffect(() => {
-    const cached = loadPrefsJson<PersistedInGame>(
-      "sigil.ingame.cache.v1",
-      300_000,
-    );
-    if (!cached) return;
+  // useEffect(() => {
+  //   const cached = app.settings;
+  //   // loadPrefsJson<PersistedInGame>(
+  //   //   "sigil.ingame.cache.v1",
+  //   //   300_000,
+  //   // );
+  //   if (!app.settings) return;
 
-    cachedRef.current = cached;
+  //   cachedRef.current = cached;
 
-    setGameState({
-      serverState: cached.serverState,
-      webState: cached.webState,
-      gameInfo: cached.gameInfo || {},
-      serverTimerSec:
-        typeof cached.serverTimerSec === "number"
-          ? cached.serverTimerSec
-          : null,
-      reward: cached.reward ?? null,
-    });
+  //   app.settings = {
+  //     ingame: {
+  //       serverState: cached.serverState,
+  //       webState: cached.webState,
+  //       gameInfo: cached.gameInfo || {},
+  //       serverTimerSec:
+  //         typeof cached.serverTimerSec === "number"
+  //           ? cached.serverTimerSec
+  //           : null,
+  //       reward: cached.reward ?? null,
+  //     },
+  //   };
 
-    hasHydratedRef.current = true;
-  }, []);
+  //   hasHydratedRef.current = true;
+  // }, []);
 
-  useEffect(() => {
-    if (!gs.roundId) return;
-    if (hasHydratedRef.current) return;
+  // useEffect(() => {
+  //   if (!app.settings.roundId) return;
+  //   if (hasHydratedRef.current) return;
 
-    const cached = cachedRef.current;
-    if (!cached) {
-      hasHydratedRef.current = true;
-      return;
-    }
+  //   const cached = cachedRef.current;
+  //   if (!cached) {
+  //     hasHydratedRef.current = true;
+  //     return;
+  //   }
 
-    if (cached.roundId !== gs.roundId) {
-      clearPrefs("sigil.ingame.cache.v1");
-      hasHydratedRef.current = true;
-      return;
-    }
+  //   if (cached.roundId !== app.settings.roundId) {
+  //     // clearPrefs("sigil.ingame.cache.v1");
+  //     app.settings = { ingame: undefined };
+  //     hasHydratedRef.current = true;
+  //     return;
+  //   }
 
-    setGameState({
-      serverState: cached.serverState,
-      webState: cached.webState,
-      gameInfo: cached.gameInfo || {},
-      serverTimerSec:
-        typeof cached.serverTimerSec === "number"
-          ? cached.serverTimerSec
-          : null,
-      reward: cached.reward ?? null,
-    });
+  //   setAppData({
+  //     serverState: cached.serverState,
+  //     webState: cached.webState,
+  //     gameInfo: cached.gameInfo || {},
+  //     serverTimerSec:
+  //       typeof cached.serverTimerSec === "number"
+  //         ? cached.serverTimerSec
+  //         : null,
+  //     reward: cached.reward ?? null,
+  //   });
 
-    hasHydratedRef.current = true;
-  }, [gs.roundId]);
+  //   hasHydratedRef.current = true;
+  // }, [app.settings.roundId]);
+
+  // useEffect(() => {
+  // if (app.settings?.gameInfo) return;
+  if (!app.settings?.gameInfo)
+    app.settings = {
+      gameInfo: {},
+    };
+  // }, []);
 
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
   useEffect(() => {
-    setDisplayTimerSec(gs.serverTimerSec);
-  }, [gs.serverTimerSec]);
+    setDisplayTimerSec(app.settings.serverTimerSec);
+  }, [app.settings.serverTimerSec]);
 
   useEffect(() => {
     if (displayTimerSec == null) return;
@@ -656,16 +662,16 @@ export default function () {
   const hudSpec: HudSpec = useMemo(
     () => ({
       timeLeftText: formatMMSS(displayTimerSec ?? undefined),
-      rewardText: `${gs.gameInfo.rewardItemAmount || "—"} ${
-        gs.gameInfo.rewardItemName || ""
+      rewardText: `${app.settings.gameInfo.rewardItemAmount || "—"} ${
+        app.settings.gameInfo.rewardItemName || ""
       }`.trim(),
       rows: lb,
     }),
     [
       lb,
       displayTimerSec,
-      gs.gameInfo.rewardItemAmount,
-      gs.gameInfo.rewardItemName,
+      app.settings.gameInfo.rewardItemAmount,
+      app.settings.gameInfo.rewardItemName,
     ],
   );
 
@@ -742,9 +748,9 @@ export default function () {
   }
   return (
     <Wrapper>
-      {gs.serverState === "joined" ? (
+      {app.settings.serverState === "joined" ? (
         <Scaled $scale={scale}>
-          {gs.profile?.name ? (
+          {app.settings.profile?.name ? (
             <ActionBarPos>
               <ActionBarSwiper
                 onUse={(actionId: string) => action.mutateAsync(actionId)}
@@ -768,14 +774,14 @@ export default function () {
           <SideDock spec={sideDockSpec} renderContent={renderSideDockContent} />
           {/* ✅ Reward popup (top-center)
               IMPORTANT: render this LAST inside Scaled so it draws on top (no z-index in USS). */}
-          {gs.reward ? (
+          {app.settings.reward ? (
             <RewardAnchor>
               {/* scale with UI zoom (old web used "zoom") */}
               <div style={{ scale: `${scale} ${scale}` }}>
                 <RewardCardOuter>
                   <RewardCard background={false}>
                     <Icon
-                      src={`/images/rewards/${gs.reward.rewardItemName}.png`}
+                      src={`/images/rewards/${app.settings.reward.rewardItemName}.png`}
                       width={40}
                       height={40}
                       shadow
@@ -791,14 +797,15 @@ export default function () {
         </Scaled>
       ) : null}
 
-      {gs.serverState === "spectating" && gs.isUpgradeOpen ? (
+      {app.settings.serverState === "spectating" &&
+      app.settings.isUpgradeOpen ? (
         <Scaled $scale={scale}>
           <UpgradeOverlay picking-mode={PickingMode.Position}>
             <UpgradeOverlayInner picking-mode={PickingMode.Position}>
               <UpgradeGrid
-                upgrades={gs.upgrades}
+                upgrades={app.settings.upgrades}
                 onUse={(upgradeId) => {
-                  setGameState({ isUpgradeOpen: false });
+                  setAppData({ isUpgradeOpen: false });
                   CS.Arken?.Bridge?.Instance?.Emit(
                     "chooseUpgrade",
                     JSON.stringify(upgradeId),
@@ -812,19 +819,20 @@ export default function () {
 
       {/* <Scaled $scale={scale}> */}
       <BottomCenter picking-mode={PickingMode.Position}>
-        {gs.serverState === "none" ? (
+        {app.settings.serverState === "none" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Connecting to realm...
             </Text>
           </StatusCard>
-        ) : gs.serverState === "authorizing" ? (
+        ) : app.settings.serverState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Authorizing with realm...
             </Text>
           </StatusCard>
-        ) : gs.serverState === "spectating" && gs.profile?.name ? (
+        ) : app.settings.serverState === "spectating" &&
+          app.settings.profile?.name ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Button
               picking-mode={PickingMode.Position}
@@ -836,13 +844,15 @@ export default function () {
               </Text>
             </Button>
           </StatusCard>
-        ) : gs.webState === "none" || gs.webState === "initializing" ? (
+        ) : app.settings.webState === "none" ||
+          app.settings.webState === "initializing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
-              Realm connected. Now omniverse....
+              Connecting to omniverse....
             </Text>
           </StatusCard>
-        ) : gs.webState === "initialized" && !gs.profile?.name ? (
+        ) : app.settings.webState === "initialized" &&
+          !app.settings.profile?.name ? (
           <ButtonFrame picking-mode={PickingMode.Position} background>
             <Button
               picking-mode={PickingMode.Position}
@@ -854,7 +864,7 @@ export default function () {
               </Text>
             </Button>
           </ButtonFrame>
-        ) : gs.webState === "authorizing" ? (
+        ) : app.settings.webState === "authorizing" ? (
           <StatusCard picking-mode={PickingMode.Position}>
             <Text size={20} bold shadow color="#fff">
               Authorizing with omniverse...
@@ -930,7 +940,8 @@ export default function () {
         </div>
       </BottomRight>
 
-      {gs.serverState === "disconnected" && gs.webState === "authorized" ? (
+      {app.settings.serverState === "disconnected" &&
+      app.settings.webState === "authorized" ? (
         <BottomCenter picking-mode={PickingMode.Position}>
           <ButtonFrame picking-mode={PickingMode.Position} background={false}>
             <Button
@@ -943,6 +954,14 @@ export default function () {
               </Text>
             </Button>
           </ButtonFrame>
+        </BottomCenter>
+      ) : null}
+
+      {app.settings.webState === "error" ? (
+        <BottomCenter picking-mode={PickingMode.Position}>
+          <Text size={48} bold shadow color="#fff">
+            Error connecting to omniverse
+          </Text>
         </BottomCenter>
       ) : null}
 

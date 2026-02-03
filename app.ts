@@ -7,18 +7,31 @@ import * as Game from "./modules/game/game.router";
 
 import { Service as CoreService } from "./modules/core/core.service";
 import { Service as GameService } from "./modules/game/game.service";
+import { Service as NetworkService } from "./modules/network/network.service";
+import { Service as RealmService } from "./modules/realm/realm.service";
+import { Service as ShardService } from "./modules/shard/shard.service";
 
 import { createAppTrpcCaller } from "./util/trpc";
 import type { AppTrpcCaller } from "./util/trpc";
 
 import { createTrpcHooks } from "./util/trpcHooks";
 import { createUnityStreamSocket } from "./util/unityStreamSocket";
+import { getAppData, setAppData } from "./ui/game/state/useAppData";
+import {
+  loadPrefsJson,
+  savePrefsJson,
+  clearPrefs,
+} from "./ui/core/state/persist";
 
 export type AppCtx = RouterContext & {
+  data: any;
   app: {
     service: {
       core: CoreService;
       game: GameService;
+      network: NetworkService;
+      realm: RealmService;
+      shard: ShardService;
     };
     trpc: AppTrpcCaller; // local + remote (same surface)
   };
@@ -59,15 +72,47 @@ export function createApp() {
   // -------------------------
   // Remote tRPC (Unity backends)
   // -------------------------
-  const { hooks: remoteTrpc, detach } = createAppTrpcCaller({ logging: true });
+  const {
+    hooks: remoteTrpc,
+    detach,
+    clients,
+  } = createAppTrpcCaller({ logging: true });
 
   const app: any = {
     service: {
       core: new CoreService(),
       game: new GameService(),
+      network: new NetworkService(),
+      realm: new RealmService(),
+      shard: new ShardService(),
     },
     trpc: remoteTrpc, // we’ll augment with local below
     detachTrpc: () => detach(),
+    get data() {
+      return getAppData();
+    },
+    set data(req) {
+      setAppData(req);
+    },
+    get settings() {
+      let settings = getAppData().settings;
+
+      if (!settings) {
+        settings = loadPrefsJson("settings");
+
+        setAppData({ settings });
+      }
+
+      return settings;
+    },
+    set settings(req) {
+      if (!req) {
+        clearPrefs("settings");
+      } else {
+        savePrefsJson("settings", req);
+        setAppData({ settings: loadPrefsJson("settings") });
+      }
+    },
   };
 
   // -------------------------
@@ -82,7 +127,9 @@ export function createApp() {
 
   const router = createRouter();
 
-  const ctx = { app } as AppCtx;
+  const ctx = {
+    app,
+  } as AppCtx;
 
   if (!ctx.app?.service?.core) {
     throw new Error(
@@ -127,11 +174,13 @@ export function createApp() {
   // -------------------------
   // Stream -> Local router bindings
   // -------------------------
-  const sigilCoreSock = createUnityStreamSocket("sigil.core");
-  const sigilGameSock = createUnityStreamSocket("sigil.game");
+  const sigilCoreSock = createUnityStreamSocket("sigil.core", clients);
+  const sigilGameSock = createUnityStreamSocket("sigil.game", clients);
 
   const bindLocalStream = (ns: "core" | "game", sock: any) => {
     const handler = async (eventName: string, payload: any) => {
+      console.log("bindLocalStream", eventName, JSON.stringify(payload));
+
       const proc = getProc(router as any, ns, eventName);
       if (!proc) {
         // 🔎 if you see this, your router proc name doesn't match the Unity eventName
@@ -154,8 +203,8 @@ export function createApp() {
         if (procExpectsVoid(proc)) {
           await fn(undefined);
         } else {
-          const args = toArgsString(payload);
-          await fn(args === undefined ? undefined : { args });
+          // const args = payload; // toArgsString(payload);
+          await fn(!payload && payload !== 0 ? undefined : payload);
         }
       } catch (e) {
         console.warn(

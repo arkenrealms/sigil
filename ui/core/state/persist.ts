@@ -1,4 +1,7 @@
 // sigil/ui/core/state/persist.ts
+
+import { deepMerge } from "../../../util/object";
+
 type Persisted<T> = { t: number; v: T };
 
 function nowMs() {
@@ -31,7 +34,8 @@ export function loadPrefsJson<T>(key: string, maxAgeMs: number = 0): T | null {
 
 export function savePrefsJson<T>(key: string, value: T) {
   try {
-    const payload: Persisted<T> = { t: nowMs(), v: value };
+    const current: T = loadPrefsJson(key);
+    const payload: Persisted<T> = { t: nowMs(), v: deepMerge(current, value) };
     CS?.UnityEngine?.PlayerPrefs?.SetString?.(key, JSON.stringify(payload));
     CS?.UnityEngine?.PlayerPrefs?.Save?.();
   } catch {

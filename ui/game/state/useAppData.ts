@@ -18,7 +18,8 @@ export type WebState =
   | "initializing"
   | "initialized"
   | "authorizing"
-  | "authorized";
+  | "authorized"
+  | "error";
 
 export type GameInfo = {
   timerSec?: number;
@@ -47,9 +48,10 @@ export type Upgrade = {
   src?: string;
 };
 
-export type GameState = {
+export type AppData = {
   serverState: ServerState;
   webState: WebState;
+  settings: any;
 
   profile: any | null;
 
@@ -64,7 +66,8 @@ export type GameState = {
   upgrades: Upgrade[];
 };
 
-const state: GameState = {
+const state: AppData = {
+  settings: undefined,
   serverState: "none",
   webState: "none",
 
@@ -86,16 +89,16 @@ function emit() {
   for (const l of listeners) l();
 }
 
-export function getGameState(): GameState {
+export function getAppData(): AppData {
   return state;
 }
 
-export function setGameState(patch: Partial<GameState>) {
-  console.log("[store] setGameState", JSON.stringify(patch));
+export function setAppData(patch: Partial<AppData>) {
+  console.log("[store] setAppData", JSON.stringify(patch));
 
   let changed = false;
   for (const k in patch) {
-    const key = k as keyof GameState;
+    const key = k as keyof AppData;
     const next = (patch as any)[key];
     if ((state as any)[key] !== next) {
       (state as any)[key] = next;
@@ -105,7 +108,7 @@ export function setGameState(patch: Partial<GameState>) {
   if (changed) emit();
 }
 
-export function useGameStore(): GameState {
+export function useAppData(): AppData {
   const [, force] = useState(0);
   useEffect(() => {
     const l = () => force((x) => x + 1);
@@ -114,3 +117,9 @@ export function useGameStore(): GameState {
   }, []);
   return state;
 }
+
+// export function updateData(patch?: Partial<AppData>): AppData {
+//   if (patch) setAppData(patch);
+
+//   return getAppData();
+// }

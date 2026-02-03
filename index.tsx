@@ -8,7 +8,22 @@ import "./polyfills/abort-controller";
 // import "./polyfills/base64";
 // import "./polyfills/text-decoder";
 // import "./polyfills/atob";
-import InGame from "./ui/game/views/InGame";
+import EntryView from "./ui/game/views/Entry";
+import InGameView from "./ui/game/views/InGame";
+
+// declare const process: any;
+
+// if (typeof process !== "undefined" && process?.on) {
+//   process.on("unhandledRejection", (reason: any, p: any) => {
+//     console.error("[unhandledRejection]", reason);
+//     if (reason?.stack) console.error(reason.stack);
+//   });
+
+//   process.on("uncaughtException", (err: any) => {
+//     console.error("[uncaughtException]", err);
+//     if (err?.stack) console.error(err.stack);
+//   });
+// }
 
 document.addRuntimeUSS?.(`
   .shadow-text {
@@ -66,7 +81,7 @@ document.addRuntimeUSS?.(`
 const App = () => {
   return (
     /* @ts-ignore */
-    <InGame />
+    <EntryView />
   );
 };
 

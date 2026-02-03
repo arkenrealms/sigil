@@ -1,7 +1,7 @@
 // sigil/modules/game/game.service.ts
 //
-import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
-import { getGameState, setGameState } from "../../ui/game/state/useGameStore";
+// import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
+import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
 
 declare const CS: any;
@@ -55,18 +55,18 @@ export class Service {
    * ✅ Service does NOT care about transport.
    * It calls ctx.app.trpc.<backend>.<router>.<proc>
    */
-  async onLoaded(input: any, ctx: any) {
-    const auth: any = loadPrefsJson("auth");
+  async onLoaded(input: any, { app }) {
+    const auth: any = app.settings.auth;
 
     console.log(
       "Service.Game.onLoaded",
       JSON.stringify(input),
       JSON.stringify(auth),
-      ctx,
+      // { app },
     );
 
     if (isValidAuth(auth)) {
-      setGameState({ serverState: "authorizing" });
+      app.settings = { serverState: "authorizing" };
 
       // Keep native var in sync if you still use it on C# side
       if (CS?.Arken?.Evolution?.NetworkManager?.Instance) {
@@ -75,7 +75,7 @@ export class Service {
       }
 
       // ✅ Transport-agnostic RPC call
-      await ctx.app.trpc.evolution.shard.login.mutate({
+      await app.trpc.evolution.shard.login.mutate({
         name: auth.name,
         network: "bsc",
         address: auth.address,
@@ -88,41 +88,41 @@ export class Service {
     }
 
     // ✅ important: if invalid auth exists, wipe it so you don't loop forever
-    if (auth) clearPrefs("auth");
+    if (auth) {
+      app.settings = { auth: undefined };
+    }
 
-    setGameState({ serverState: "loading" });
+    app.settings = { serverState: "loading" };
   }
 
-  onLogin(input: any, ctx: any) {
-    const gs = getGameState();
-    if (gs.serverState !== "authorizing") return;
+  onLogin(input: any, { app }) {
+    if (app.settings.serverState !== "authorizing") return;
 
-    setGameState({ serverState: "joining" });
+    app.settings = { serverState: "joining" };
   }
 
-  onJoinGame(input: any, ctx: any) {
-    setGameState({ serverState: "joined" });
+  onJoinGame(input: any, { app }) {
+    app.settings = { serverState: "joined" };
   }
 
-  onSpectate(input: any, ctx: any) {
-    setGameState({ serverState: "spectating" });
+  onSpectate(input: any, { app }) {
+    app.settings = { serverState: "spectating" };
   }
 
-  onGameOver(input: any, ctx: any) {
-    setGameState({ serverState: "spectating" });
+  onGameOver(input: any, { app }) {
+    app.settings = { serverState: "spectating" };
   }
 
-  onDisconnected(input: any, ctx: any) {
-    setGameState({
+  onDisconnected(input: any, { app }) {
+    app.settings = {
       serverState: "disconnected",
       reward: null,
       isUpgradeOpen: false,
       upgrades: [],
-    });
-    clearPrefs("sigil.ingame.cache.v1");
+    };
   }
 
-  onSetRoundInfo(input: { args: string }, ctx: any) {
+  onSetRoundInfo(input: { args: string }, { app }) {
     const raw = input.args ?? "";
     const parts = raw.split(":");
 
@@ -130,19 +130,19 @@ export class Service {
     const nextRoundId = parts[22] ?? "";
 
     const info = parseRoundInfo(raw);
-    const prev = getGameState();
+    const prev = getAppData();
 
-    setGameState({
+    app.settings = {
       roundId: nextRoundId || prev.roundId,
       gameInfo: { ...prev.gameInfo, ...info },
       serverTimerSec:
         typeof (info as any).timerSec === "number"
           ? (info as any).timerSec
           : prev.serverTimerSec,
-    });
+    };
   }
 
-  onSpawnReward(input: { args: string }, ctx: any) {
+  onSpawnReward(input: { args: string }, { app }) {
     const data = (input.args ?? "").split(":");
     const id = data[0] ?? "";
     const rewardItemType = data[1] ?? "";
@@ -151,7 +151,7 @@ export class Service {
     const x = data[4] ?? "";
     const y = data[5] ?? "";
 
-    setGameState({
+    app.settings = {
       reward: {
         id,
         rewardItemType,
@@ -160,32 +160,32 @@ export class Service {
         position: { x, y },
         ...rewardDescriptions(rewardItemName),
       },
-    });
+    };
   }
 
-  onUpdatePlayer(input: any, ctx: any) {}
+  onUpdatePlayer(input: any, { app }) {}
 
-  onSetPositionMonitor(input: any, ctx: any) {}
+  onSetPositionMonitor(input: any, { app }) {}
 
-  onBroadcast(input: any, ctx: any) {}
+  onBroadcast(input: any, { app }) {}
 
-  onHideMinimap(input: any, ctx: any) {}
+  onHideMinimap(input: any, { app }) {}
 
-  onOpenLevel2(input: any, ctx: any) {}
+  onOpenLevel2(input: any, { app }) {}
 
-  onSpawnPowerUp(input: any, ctx: any) {}
+  onSpawnPowerUp(input: any, { app }) {}
 
-  onUpdateReward(input: any, ctx: any) {}
+  onUpdateReward(input: any, { app }) {}
 
-  onUpdateBestClient(input: any, ctx: any) {}
+  onUpdateBestClient(input: any, { app }) {}
 
-  onSpawnClient(input: any, ctx: any) {}
+  onSpawnClient(input: any, { app }) {}
 
-  onUpdatePickup(input: any, ctx: any) {}
+  onUpdatePickup(input: any, { app }) {}
 
-  onUpdateEvolution(input: any, ctx: any) {}
+  onUpdateEvolution(input: any, { app }) {}
 
-  onUpgrade(input: { args: string }, ctx: any) {
+  onUpgrade(input: { args: string }, { app }) {
     const raw = input.args ?? "";
     try {
       const parts = raw.split(",");
@@ -193,7 +193,7 @@ export class Service {
       const upgradeId2 = parts[2];
       const upgradeId3 = parts[3];
 
-      setGameState({
+      app.settings = {
         upgrades: [
           {
             id: upgradeId1,
@@ -218,7 +218,7 @@ export class Service {
           },
         ],
         isUpgradeOpen: true,
-      });
+      };
     } catch {
       console.warn("[Upgrade] Failed to parse onUpgrade payload", raw);
     }
