@@ -122,7 +122,7 @@ function ensureDispatcher(clients: any): Dispatcher {
         return;
       }
 
-      console.log("aaaaaa", id, client.ioCallbacks[id]);
+      // console.log("aaaaaa", id, client.ioCallbacks[id]);
 
       try {
         if (client.ioCallbacks[id]) {
@@ -172,7 +172,7 @@ function ensureDispatcher(clients: any): Dispatcher {
     }
   };
 
-  // const clickEventHandler = (
+  // const InteractionEventHandler = (
   //   streamName: string,
   //   eventName: string,
   //   args: any,
@@ -227,15 +227,17 @@ function ensureDispatcher(clients: any): Dispatcher {
     );
   }
 
-  const addClickEventHandler = bridge.add_OnClickEvent?.bind(bridge);
-  const removeClickEventHandler = bridge.remove_OnClickEvent?.bind(bridge);
+  const addInteractionEventHandler =
+    bridge.add_OnInteractionEvent?.bind(bridge);
+  const removeInteractionEventHandler =
+    bridge.remove_OnInteractionEvent?.bind(bridge);
 
   if (
-    typeof addClickEventHandler !== "function" ||
-    typeof removeClickEventHandler !== "function"
+    typeof addInteractionEventHandler !== "function" ||
+    typeof removeInteractionEventHandler !== "function"
   ) {
     throw new Error(
-      "[unityClickSocket] Bridge missing add/remove_OnClickEvent",
+      "[unityClickSocket] Bridge missing add/remove_OnInteractionEvent",
     );
   }
 
@@ -251,13 +253,13 @@ function ensureDispatcher(clients: any): Dispatcher {
     attach: () => {
       if (dispatcher?.attached) return;
       addStreamEventHandler(streamEventHandler);
-      addClickEventHandler(streamEventHandler);
+      addInteractionEventHandler(streamEventHandler);
       if (dispatcher) dispatcher.attached = true;
     },
     detach: () => {
       if (!dispatcher?.attached) return;
       removeStreamEventHandler(streamEventHandler);
-      removeClickEventHandler(streamEventHandler);
+      removeInteractionEventHandler(streamEventHandler);
       if (dispatcher) dispatcher.attached = false;
     },
   };
@@ -291,6 +293,7 @@ function bridgeEmitStream(stream: StreamName, eventName: string, payload: any) {
       stream === "evolutionShard"
         ? String(toArgsJson(payload.params))
         : argsJson,
+      payload.id,
     );
     return;
   }
@@ -379,6 +382,18 @@ export function createUnityStreamSocket(stream: StreamName, clients: any) {
           }
         }
       }
+
+      // onejs.subscribe("onReload", () => {
+      //   const mapForEvent = perEvent.get(eventName);
+      //   const wrapper = mapForEvent?.get(cb);
+      //   if (!wrapper) return;
+
+      //   anyListeners.delete(wrapper);
+      //   mapForEvent!.delete(cb);
+      //   if (mapForEvent!.size === 0) perEvent.delete(eventName);
+
+      //   cleanupStreamMapsIfEmpty(d, stream);
+      // });
     },
 
     off: (eventName: string, cb: (payload: any) => void) => {

@@ -30,6 +30,12 @@ export const createRouter = (t: any) =>
         ctx.app.service.game.onJoinGame(input, ctx),
       ),
 
+    onRoundWinner: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onRoundWinner(input, ctx),
+      ),
+
     onSpectate: t.procedure
       .input(z.any())
       .mutation(({ input, ctx }) =>
@@ -124,9 +130,21 @@ export const createRouter = (t: any) =>
         ctx.app.service.game.onUpdatePickup(input, ctx),
       ),
 
+    onRoundPaused: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onRoundPaused(input, ctx),
+      ),
+
     onUpdateEvolution: t.procedure
       .input(z.any())
       .mutation(({ input, ctx }) =>
         ctx.app.service.game.onUpdateEvolution(input, ctx),
+      ),
+
+    onUpdateRegression: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onUpdateRegression(input, ctx),
       ),
   });

@@ -25,6 +25,7 @@ import { useUiZoomPercent } from "../state/useUiZoom";
 import { Text } from "../../core/components/Text";
 import { getApp } from "../../../appInstance";
 import { useAppData, setAppData } from "../state/useAppData";
+import { useAppSettings } from "../../../hooks/useAppSettings";
 
 const app = getApp();
 
@@ -509,8 +510,9 @@ function rewardDescriptions(name: string) {
   };
 }
 
-export default function () {
+export default function ({ app }) {
   const [modal, setModal] = useState<ModalKey>(null);
+  const settings = useAppSettings(app);
 
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
@@ -519,11 +521,11 @@ export default function () {
 
   const lb = useLeaderboard();
 
-  const cachedRef = useRef<PersistedInGame | null>(null);
-  const hasHydratedRef = useRef(false);
+  // const cachedRef = useRef<PersistedInGame | null>(null);
+  // const hasHydratedRef = useRef(false);
   // const [profile, setProfile] = useState(null);
 
-  const gs = useAppData();
+  // const gs = useAppData();
 
   const action = app.trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
   const load = app.trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
@@ -744,7 +746,7 @@ export default function () {
   function renderSideDockContent(active: SideDockTabKey) {
     if (active === "party") return <PartyDockContent />;
     if (active === "quest") return <QuestDockContent />;
-    return <GameDockContent gameMode={gs?.gameInfo?.gameMode} />;
+    return <GameDockContent gameMode={app.settings?.gameInfo?.gameMode} />;
   }
   return (
     <Wrapper>

@@ -22,6 +22,10 @@ declare global {
       }
       namespace ArkenGame {
         const Evolution: any;
+        const Infinite: any;
+        const Heart: any;
+        const Realms: any;
+        const Oasis: any;
       }
       namespace Bridge {
         namespace Instance {
@@ -38,6 +42,11 @@ declare global {
             ns: string,
             method: string,
             args: any,
+          ): void;
+          function SetCameraTarget(
+            name: string,
+            axis?: number,
+            rotation?: number,
           ): void;
         }
       }

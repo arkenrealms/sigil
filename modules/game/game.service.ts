@@ -1,5 +1,6 @@
 // sigil/modules/game/game.service.ts
 //
+import { Vector3 } from "UnityEngine";
 // import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
 import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
@@ -140,6 +141,8 @@ export class Service {
       },
     );
 
+    // CS.Arken.Bridge.Instance.SetCameraTarget("MainPlayer", 0, 0);
+
     app.settings = { serverState: "loaded" };
 
     app.service.network.checkConnections(null, { app });
@@ -172,6 +175,8 @@ export class Service {
   }
 
   onSetRoundInfo(input: { args: string }, { app }) {
+    console.log("Sigil.Service.Game.onSetRoundInfo", JSON.stringify(input));
+
     const raw = input.args ?? "";
     const parts = raw.split(":");
 
@@ -192,6 +197,7 @@ export class Service {
   }
 
   onSpawnReward(input: { args: string }, { app }) {
+    console.log("Sigil.Service.Game.onSpawnReward", JSON.stringify(input));
     const data = (input.args ?? "").split(":");
     const id = data[0] ?? "";
     const rewardItemType = data[1] ?? "";
@@ -216,7 +222,34 @@ export class Service {
 
   onSetPositionMonitor(input: any, { app }) {}
 
-  onBroadcast(input: any, { app }) {}
+  onRoundWinner(input: any, { app }) {}
+
+  onRoundPaused(input: any, { app }) {
+    console.log("Sigil.Service.Game.onRoundPaused", JSON.stringify(input));
+    CS.Arken.Evolution.CanvasManager.Instance.roundTimerDesktopGameObject.SetActive(
+      false,
+    );
+    CS.Arken.Evolution.CanvasManager.Instance.roundTimerMobileGameObject.SetActive(
+      false,
+    );
+    CS.Arken.Evolution.CanvasManager.Instance.roundInfoGameObject.SetActive(
+      false,
+    );
+
+    if (CS.Arken.Evolution.NetworkManager.myPlayer != null)
+      CS.Arken.Evolution.NetworkManager.myPlayer.GetComponent(
+        CS.Arken.Evolution.Player2DManager,
+      ).isRoundPaused = true;
+  }
+
+  onBroadcast(input: any, { app }) {
+    console.log("Sigil.Service.Game.onBroadcast", JSON.stringify(input));
+    const data = (input ?? "").split(":");
+    const message = data[0] ?? "";
+    const icon = parseInt(data[1] || "1");
+
+    CS.Arken.Evolution.CanvasManager.Instance.AddEnteringArea(message, icon);
+  }
 
   onHideMinimap(input: any, { app }) {}
 
@@ -224,7 +257,40 @@ export class Service {
 
   onSpawnPowerUp(input: any, { app }) {}
 
-  onUpdateReward(input: any, { app }) {}
+  onUpdateReward(input: any, { app }: { app: any }) {
+    // pack[0] = player_id
+    // pack[1] = powerUp id
+    const data = String(input ?? "");
+    const pack = data.split(CS.Arken.Evolution.NetworkManager.Delimiter);
+
+    const playerId = pack[0];
+    const powerUpId = pack[1];
+
+    const nm = CS.Arken.Evolution.NetworkManager.Instance;
+    if (
+      nm != null &&
+      nm.networkPlayers != null &&
+      nm.networkPlayers.ContainsKey(playerId)
+    ) {
+      const targetPlayer = nm.networkPlayers.get_Item(playerId) as any; // Player2DManager
+
+      if (targetPlayer != null && targetPlayer.isLocalPlayer) {
+        CS.Arken.Evolution.GameManager.PlayFeedback(
+          CS.Arken.Evolution.GameManager.Instance.pickupFeedback,
+          targetPlayer.transform.position,
+        );
+
+        CS.Arken.Evolution.CanvasManager.Instance.ShowTreasure(
+          CS.Arken.Evolution.CanvasManager.Instance.runeRewardAmount.text,
+          targetPlayer.transform.position,
+        );
+
+        CS.Arken.SoundManager.Instance.PlaySFX(nm.sfxPickupOrb);
+      }
+    }
+
+    const value = CS.Arken.Evolution.RewardManager.instance.Pickup(powerUpId);
+  }
 
   onUpdateBestClient(input: any, { app }) {}
 
@@ -232,7 +298,43 @@ export class Service {
 
   onUpdatePickup(input: any, { app }) {}
 
-  onUpdateEvolution(input: any, { app }) {}
+  onUpdateEvolution(input: any, { app }: { app: any }) {
+    console.log("Sigil.Service.Game.onUpdateEvolution", JSON.stringify(input));
+    // pack[0] = player_id
+    // pack[1] = avatar
+    // pack[2] = speed
+
+    const data = String(input ?? "");
+    const pack = data.split(":");
+    console.log("aaaaa2", pack);
+    const nm = CS.Arken.Evolution.NetworkManager.Instance;
+    if (nm != null && nm.networkPlayers.ContainsKey(pack[0])) {
+      const netPlayer = nm.networkPlayers.get_Item(pack[0]) as any; // Player2DManager
+
+      netPlayer.speed = CS.Arken.Converter.StringToFloat(pack[2]);
+      netPlayer.Evolution(parseInt(pack[1], 10));
+    }
+  }
+
+  onUpdateRegression(input: any, { app }: { app: any }) {
+    console.log("Sigil.Service.Game.onUpdateRegression", JSON.stringify(input));
+    // pack[0] = player_id
+    // pack[1] = avatar
+    // pack[2] = speed
+
+    const data = String(input ?? "");
+    const pack = data.split(":");
+    console.log("aaaaa1", pack, ":");
+    const nm = CS.Arken.Evolution.NetworkManager.Instance;
+    if (nm != null && nm.networkPlayers.ContainsKey(pack[0])) {
+      const netPlayer = nm.networkPlayers.get_Item(pack[0]) as any; // Player2DManager
+
+      netPlayer.speed = CS.Arken.Converter.StringToFloat(pack[2]);
+      netPlayer.Regression(parseInt(pack[1], 10));
+    }
+
+    nm.updatePlayerEffects();
+  }
 
   onUpgrade(input: { args: string }, { app }) {
     const raw = input.args ?? "";

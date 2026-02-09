@@ -10,6 +10,8 @@ import "./polyfills/abort-controller";
 // import "./polyfills/atob";
 import EntryView from "./ui/game/views/Entry";
 import InGameView from "./ui/game/views/InGame";
+import { getApp } from "./appInstance";
+import { useAppSettings } from "./hooks/useAppSettings";
 
 // declare const process: any;
 
@@ -78,10 +80,18 @@ document.addRuntimeUSS?.(`
 }
 `);
 
+const app = getApp();
+
 const App = () => {
-  return (
+  const settings = useAppSettings(app);
+
+  return settings.gameKey === "evolution-isles" ? (
+    <InGameView app={app} />
+  ) : settings.gameKey === "heart-of-the-oasis" ? (
+    <InGameView app={app} />
+  ) : (
     /* @ts-ignore */
-    <EntryView />
+    <EntryView app={app} />
   );
 };
 

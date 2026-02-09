@@ -190,7 +190,12 @@ export function createSocketLink(
                   JSON.stringify(result),
                 );
 
-                observer.next({ result } as any);
+                observer.next({
+                  result: {
+                    status: result?.status ?? 1,
+                    data: result?.data ?? result,
+                  },
+                } as any);
                 observer.complete();
               }
 
@@ -461,8 +466,8 @@ export function createSocketProxyClient<TRouter = any>(
                     } else {
                       observer.next({
                         result: {
-                          status: result.status ?? 1,
-                          data: result.data ?? result,
+                          status: result?.status ?? 1,
+                          data: result?.data ?? result,
                         },
                       } as any);
                       observer.complete();

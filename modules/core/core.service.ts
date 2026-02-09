@@ -4,9 +4,15 @@
 //   savePrefsJson,
 //   clearPrefs,
 // } from "../../ui/core/state/persist";
-import { getAppData, setAppData } from "../../ui/game/state/useAppData";
 import { isValidAuth } from "../../util/isValidAuth";
 import { ensureManagedScenes, onChangeGame } from "../../util/unity/scene";
+import {
+  createDefaultDslActions,
+  execDslEvent,
+  tryParseInteractionDsl,
+} from "../../util/dsl/interactionDsl";
+
+// OneJS script
 
 export class Service {
   // async onBridgeInitialized(input, { app }) {
@@ -59,6 +65,8 @@ export class Service {
     });
 
     app.settings = { appState: "initialized" };
+
+    // CS.Arken.Bridge.Instance.SetCameraTarget("MainPlayer", 1, 90);
   }
 
   async onWebInitializing(input, { app }) {
@@ -67,25 +75,95 @@ export class Service {
     app.settings = { webState: "initializing" };
   }
 
-  async onClick(input: any, { app }) {
-    console.log("Sigil.Service.Core.onClick", JSON.stringify(input));
+  async play(gameKey: any, { app }) {
+    console.log("Sigil.Service.Core.play", gameKey);
 
-    if (input.name !== "Portal") return;
+    // // ----
+    // // Legacy path (keep while migrating)
+    // // ----
+    // if (goName !== "JS:OnClick(LoadGame('Evolution'))") return;
     if (app.settings.webState !== "authorized") return;
     if (app.settings.appState !== "initialized") return;
 
-    const res2 = await app.trpc.seer.core.play.query({
-      appIdentifier: app.settings.info.identifier,
-    });
+    if (gameKey === "evolution-isles") {
+      const res2 = await app.trpc.seer.core.play.query({
+        // appIdentifier: app.settings.info.identifier,
+        gameKey,
+      });
 
-    console.log("onClick core.play", JSON.stringify(res2));
+      console.log("onClick core.play", JSON.stringify(res2));
 
-    if (res2.type === "shard") {
-      app.settings = { serverState: "connecting" };
+      if (res2.type === "shard") {
+        app.settings = { serverState: "connecting", gameKey };
 
-      // CS.Arken.Evolution.NetworkManager.Instance.serverAddress = res2.address;
+        CS.Arken.Evolution.NetworkManager.Instance.Connect(res2.address); // todo: Evolution.NetworkManager -> ShardClient
+      }
+    } else if (gameKey === "heart-of-the-oasis") {
+      // CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Heart;
 
-      CS.Arken.Evolution.NetworkManager.Instance.Connect(res2.address);
+      await ensureManagedScenes(["Shared", "H_Game"], {
+        managedScenes: [
+          "Entry",
+          "Shared",
+          // "E_UI",
+          "E_Pool",
+          "Sound",
+          "H_Game",
+          "E_Game",
+          "R_Game",
+          "E_MageIsles",
+          "E_MemeIsles",
+          "E_EndOfTime",
+        ],
+        logging: true,
+        // Keep sequential loading unless you *know* parallel is safe
+        parallel: false,
+      });
+
+      app.settings = { serverState: "loaded", gameKey };
+
+      // CS.Arken.Bridge.Instance.SetCameraTarget("MainPlayer", 1, 0);
+    }
+  }
+
+  async onPointerDown(input: any, { app }) {
+    console.log("Sigil.Service.Core.onPointerDown", input);
+  }
+
+  async onPointerUp(input: any, { app }) {
+    console.log("Sigil.Service.Core.onPointerUp", input);
+  }
+
+  async onDrag(input: any, { app }) {
+    console.log("Sigil.Service.Core.onDrag", input);
+  }
+
+  async onClick(input: any, { app }) {
+    console.log("Sigil.Service.Core.onClick", input);
+
+    try {
+      // input is a Unity GameObject proxied into JS.
+      const goName = input?.name ?? "";
+
+      // ----
+      // DSL path
+      // ----
+      const env = tryParseInteractionDsl(goName);
+      if (env) {
+        // Bind actions (Play must be bound to something real)
+        const actions = createDefaultDslActions();
+
+        // Bind Play to THIS service implementation (so default action works)
+        actions.Play = async (args, ctx) => {
+          const gameKey = args?.[0] ?? "";
+          await this.play(gameKey, { app });
+        };
+
+        // Execute the OnClick pipelines
+        await execDslEvent(env, "OnClick", { app, go: input }, actions);
+      }
+    } catch (e) {
+      console.log("onClick error", e);
     }
   }
 
@@ -108,7 +186,8 @@ export class Service {
 
       await app.trpc.forge.core.authorize.mutate(auth);
 
-      console.log("aaaaaa authorized");
+      // app.settings = { webState: "authorized" };
+      // console.log("aaaaaa authorized");
       //   CS?.Arken?.Bridge?.Instance?.Authorize?.(JSON.stringify(auth));
 
       // Arken.SeerClient.Instance.Emit("core.authorize", jo);

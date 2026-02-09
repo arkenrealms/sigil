@@ -118,6 +118,11 @@ export function useAppData(): AppData {
   return state;
 }
 
+export function subscribeAppData(cb: () => void) {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
 // export function updateData(patch?: Partial<AppData>): AppData {
 //   if (patch) setAppData(patch);
 

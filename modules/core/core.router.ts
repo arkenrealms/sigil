@@ -10,6 +10,22 @@ import {
 
 export const createRouter = (t: any) =>
   t.router({
+    onPointerDown: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onPointerDown(input, ctx),
+      ),
+
+    onPointerUp: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.core.onPointerUp(input, ctx),
+      ),
+
+    onDrag: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) => ctx.app.service.core.onDrag(input, ctx)),
+
     onClick: t.procedure
       .input(z.any())
       .mutation(({ input, ctx }) => ctx.app.service.core.onClick(input, ctx)),
