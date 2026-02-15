@@ -1,9 +1,15 @@
-// sigil/modules/game/game.router.ts
+// sigil/services/game/game.router.ts
 //
 import { z } from "zod";
 
 export const createRouter = (t: any) =>
   t.router({
+    onChangeGame: t.procedure
+      .input(z.any())
+      .mutation(({ input, ctx }) =>
+        ctx.app.service.game.onChangeGame(input, ctx),
+      ),
+
     onConnected: t.procedure
       .input(z.any())
       .mutation(({ input, ctx }) =>

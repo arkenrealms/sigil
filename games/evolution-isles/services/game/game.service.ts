@@ -1,10 +1,13 @@
-// sigil/modules/game/game.service.ts
+// sigil/services/game/game.service.ts
 //
 import { Vector3 } from "UnityEngine";
 // import { loadPrefsJson, clearPrefs } from "../../ui/core/state/persist";
-import { getAppData, setAppData } from "../../ui/game/state/useAppData";
-import { isValidAuth } from "../../util/isValidAuth";
-import { ensureManagedScenes, onChangeGame } from "../../util/unity/scene";
+import { getAppData, setAppData } from "../../../../ui/game/state/useAppData";
+import { isValidAuth } from "../../../../util/isValidAuth";
+import {
+  ensureManagedScenes,
+  onChangeGame,
+} from "../../../../util/unity/scene";
 
 declare const CS: any;
 
@@ -256,6 +259,16 @@ export class Service {
   onOpenLevel2(input: any, { app }) {}
 
   onSpawnPowerUp(input: any, { app }) {}
+
+  onChangeGame(input: any, { app }) {
+    if (app.settings.serverState === "disconnected") return;
+
+    app.settings = { serverState: "disconnected" };
+
+    CS.Arken.Evolution.NetworkManager.Instance.Disconnect();
+
+    app.service.core.play(input, { app });
+  }
 
   onUpdateReward(input: any, { app }: { app: any }) {
     // pack[0] = player_id

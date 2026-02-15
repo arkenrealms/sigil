@@ -1,7 +1,7 @@
 // sigil/ui/game/views/InGame/GameDockContent.tsx
 import { h } from "preact";
-import styled from "../../../../util/styled";
-import { Text } from "../../../core/components/Text";
+import styled from "../../../../../util/styled";
+import { Text } from "../../../../../ui/core/components/Text";
 
 const Lines = styled.div`
   white-space: pre-line;

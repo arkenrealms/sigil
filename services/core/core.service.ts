@@ -1,4 +1,4 @@
-// arken/sigil/modules/core/core.service.ts
+// arken/sigil/services/core/core.service.ts
 // import {
 //   loadPrefsJson,
 //   savePrefsJson,
@@ -43,10 +43,14 @@ export class Service {
       appState: "initializing",
       serverState: "none",
       webState: "initializing",
+      gameKey: "return-to-the-oasis",
       info: input,
+      isUpgradeOpen: false,
+      upgrades: [],
     };
 
-    await ensureManagedScenes(["Shared", "R_Game", "Sound"], {
+    // await ensureManagedScenes(["Shared", "R_Game", "Sound"], {
+    await ensureManagedScenes(["Shared", "Entry"], {
       managedScenes: [
         "Entry",
         "Shared",
@@ -85,6 +89,8 @@ export class Service {
     if (app.settings.webState !== "authorized") return;
     if (app.settings.appState !== "initialized") return;
 
+    app.settings = { appState: "loading-game" };
+
     if (gameKey === "evolution-isles") {
       const res2 = await app.trpc.seer.core.play.query({
         // appIdentifier: app.settings.info.identifier,
@@ -94,10 +100,38 @@ export class Service {
       console.log("onClick core.play", JSON.stringify(res2));
 
       if (res2.type === "shard") {
-        app.settings = { serverState: "connecting", gameKey };
+        app.settings = { gameKey, serverState: "connecting" };
 
         CS.Arken.Evolution.NetworkManager.Instance.Connect(res2.address); // todo: Evolution.NetworkManager -> ShardClient
       }
+    } else if (gameKey === "return-to-the-oasis") {
+      // CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Heart;
+
+      await ensureManagedScenes(["Shared", "Entry"], {
+        managedScenes: [
+          "Entry",
+          "Shared",
+          // "E_UI",
+          "E_Pool",
+          "Sound",
+          "H_Game",
+          "E_Game",
+          "R_Game",
+          "E_MageIsles",
+          "E_MemeIsles",
+          "E_EndOfTime",
+        ],
+        logging: true,
+        // Keep sequential loading unless you *know* parallel is safe
+        parallel: false,
+      });
+
+      app.settings = {
+        gameKey,
+        serverState: "loaded",
+        appState: "initialized",
+      };
+      // CS.Arken.Bridge.Instance.SetCameraTarget("MainPlayer", 1, 0);
     } else if (gameKey === "heart-of-the-oasis") {
       // CS.Arken.LoaderHandler.Instance.loadedGame = CS.Arken.ArkenGame.Heart;
 
@@ -120,7 +154,11 @@ export class Service {
         parallel: false,
       });
 
-      app.settings = { serverState: "loaded", gameKey };
+      app.settings = {
+        gameKey,
+        serverState: "loaded",
+        appState: "initialized",
+      };
 
       // CS.Arken.Bridge.Instance.SetCameraTarget("MainPlayer", 1, 0);
     }

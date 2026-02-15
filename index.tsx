@@ -9,7 +9,7 @@ import "./polyfills/abort-controller";
 // import "./polyfills/text-decoder";
 // import "./polyfills/atob";
 import EntryView from "./ui/game/views/Entry";
-import InGameView from "./ui/game/views/InGame";
+import EvolutionIslesInGameView from "./games/evolution-isles/ui/views/InGame";
 import { getApp } from "./appInstance";
 import { useAppSettings } from "./hooks/useAppSettings";
 
@@ -86,9 +86,11 @@ const App = () => {
   const settings = useAppSettings(app);
 
   return settings.gameKey === "evolution-isles" ? (
-    <InGameView app={app} />
+    <EvolutionIslesInGameView app={app} />
   ) : settings.gameKey === "heart-of-the-oasis" ? (
-    <InGameView app={app} />
+    <EvolutionIslesInGameView app={app} />
+  ) : settings.gameKey === "return-to-the-oasis" ? (
+    <EntryView app={app} />
   ) : (
     /* @ts-ignore */
     <EntryView app={app} />

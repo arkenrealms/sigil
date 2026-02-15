@@ -1,4 +1,4 @@
-// arken/sigil/modules/network/network.service.ts
+// arken/sigil/services/network/network.service.ts
 export class Service {
   async checkConnections(input: any, { app }) {
     console.log(

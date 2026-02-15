@@ -174,47 +174,51 @@ export default function ({ app }) {
 
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
-  const zoom = clamp(zoomRaw, 50, 150);
+  const zoom = clamp(zoomRaw, 900, 100);
   const scale = zoom / 100;
 
   const showLogin = app.trpc.forge.core.showLogin.useMutation();
 
   return (
     <Wrapper picking-mode={PickingMode.Ignore}>
-      <BottomCenter picking-mode={PickingMode.Position}>
-        {settings.webState === "none" ||
-        settings.webState === "initializing" ? (
-          <StatusCard picking-mode={PickingMode.Position}>
-            <Text size={60} bold shadow color="#fff">
-              Connecting to omniverse....
-            </Text>
-          </StatusCard>
-        ) : settings.webState === "initialized" && !settings.profile?.name ? (
-          <ButtonFrame picking-mode={PickingMode.Position} background>
-            <Button
-              picking-mode={PickingMode.Position}
-              onPointerDown={(e) => (e as any)?.StopPropagation?.()}
-              onClick={() => showLogin.mutateAsync()}
-            >
-              <Text size={24} bold color="#fff">
-                Login
-              </Text>
-            </Button>
-          </ButtonFrame>
-        ) : settings.webState === "authorizing" ? (
-          <StatusCard picking-mode={PickingMode.Position}>
-            <Text size={60} bold shadow color="#fff">
-              Authorizing with omniverse...
-            </Text>
-          </StatusCard>
-        ) : null}
-      </BottomCenter>
-      {settings.webState === "error" ? (
+      <Scaled $scale={scale}>
         <BottomCenter picking-mode={PickingMode.Position}>
-          <Text size={60} bold shadow color="#fff">
-            Error connecting to omniverse
-          </Text>
+          {settings.webState === "none" ||
+          settings.webState === "initializing" ? (
+            <StatusCard picking-mode={PickingMode.Position}>
+              <Text size={60} bold shadow color="#fff">
+                Connecting to omniverse....
+              </Text>
+            </StatusCard>
+          ) : settings.webState === "initialized" && !settings.profile?.name ? (
+            <ButtonFrame picking-mode={PickingMode.Position} background>
+              <Button
+                picking-mode={PickingMode.Position}
+                onPointerDown={(e) => (e as any)?.StopPropagation?.()}
+                onClick={() => showLogin.mutateAsync()}
+              >
+                <Text size={24} bold color="#fff">
+                  Login
+                </Text>
+              </Button>
+            </ButtonFrame>
+          ) : settings.webState === "authorizing" ? (
+            <StatusCard picking-mode={PickingMode.Position}>
+              <Text size={60} bold shadow color="#fff">
+                Authorizing with omniverse...
+              </Text>
+            </StatusCard>
+          ) : null}
         </BottomCenter>
+      </Scaled>
+      {settings.webState === "error" ? (
+        <Scaled $scale={scale}>
+          <BottomCenter picking-mode={PickingMode.Position}>
+            <Text size={60} bold shadow color="#fff">
+              Error connecting to omniverse
+            </Text>
+          </BottomCenter>
+        </Scaled>
       ) : null}
       {/* ✅ Modal is NOT scaled, so it always covers the full screen */}
       {modal ? (

@@ -1,15 +1,15 @@
 // arken/sigil/ui/game/views/InGame.tsx
 import { h, Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import styled from "../../../util/styled";
-import { ActionBarSwiper } from "../../actions/components/ActionBarSwiper";
-import { ActionGrid } from "../../actions/components/ActionGrid";
-import actions from "../../../data/actions";
-import bars from "../../../data/bars";
-import { Hud, HudSpec } from "../components/Hud";
-import { Icon } from "../../core/components/Icon";
-import { useLeaderboard } from "../state/useLeaderboard";
-import UpgradeGrid from "../components/UpgradeGrid";
+import styled from "../../../../util/styled";
+import { ActionBarSwiper } from "../../../../ui/actions/components/ActionBarSwiper";
+import { ActionGrid } from "../../../../ui/actions/components/ActionGrid";
+import actions from "../../../../data/actions";
+import bars from "../../../../data/bars";
+import { Hud, HudSpec } from "../../../../ui/game/components/Hud";
+import { Icon } from "../../../../ui/core/components/Icon";
+import { useLeaderboard } from "../../../../ui/game/state/useLeaderboard";
+import UpgradeGrid from "../../../../ui/game/components/UpgradeGrid";
 import { PartyDockContent } from "./InGame/PartyDockContent";
 import { QuestDockContent } from "./InGame/QuestDockContent";
 import { GameDockContent } from "./InGame/GameDockContent";
@@ -18,14 +18,18 @@ import {
   ActionHub,
   ActionHubItem,
   ActionHubSpec,
-} from "../components/ActionHub";
-import { SideDock, SideDockSpec, SideDockTabKey } from "../components/SideDock";
-import { SettingsPanel } from "../components/SettingsPanel";
-import { useUiZoomPercent } from "../state/useUiZoom";
-import { Text } from "../../core/components/Text";
-import { getApp } from "../../../appInstance";
-import { useAppData, setAppData } from "../state/useAppData";
-import { useAppSettings } from "../../../hooks/useAppSettings";
+} from "../../../../ui/game/components/ActionHub";
+import {
+  SideDock,
+  SideDockSpec,
+  SideDockTabKey,
+} from "../../../../ui/game/components/SideDock";
+import { SettingsPanel } from "../../../../ui/game/components/SettingsPanel";
+import { useUiZoomPercent } from "../../../../ui/game/state/useUiZoom";
+import { Text } from "../../../../ui/core/components/Text";
+import { getApp } from "../../../../appInstance";
+import { useAppData, setAppData } from "../../../../ui/game/state/useAppData";
+import { useAppSettings } from "../../../../hooks/useAppSettings";
 
 const app = getApp();
 
@@ -516,131 +520,20 @@ export default function ({ app }) {
 
   // constrain zoom to 50%..150% no matter what storage returns
   const zoomRaw = useUiZoomPercent();
-  const zoom = clamp(zoomRaw, 50, 150);
+  const zoom = clamp(zoomRaw, 80, 120);
   const scale = zoom / 100;
 
   const lb = useLeaderboard();
-
-  // const cachedRef = useRef<PersistedInGame | null>(null);
-  // const hasHydratedRef = useRef(false);
-  // const [profile, setProfile] = useState(null);
-
-  // const gs = useAppData();
 
   const action = app.trpc.evolution.shard.action.useMutation(); //action.mutateAsync(actionId);
   const load = app.trpc.evolution.shard.load.useMutation(); //load.mutateAsync();
   const join = app.trpc.evolution.shard.join.useMutation(); //join.mutateAsync();
   const showLogin = app.trpc.forge.core.showLogin.useMutation();
 
-  // useEffect(() => {
-  //   const bridge = CS?.Arken?.Bridge?.Instance;
-  //   if (!bridge) return;
-
-  //   const onServer = (eventName: string, args: string) => {
-  //     // console.log("trying to call unity server event", eventName, args);
-  //     // don't await — keep handler fast; service can async as needed
-  //     onUnityServerEvent(eventName, args);
-  //   };
-
-  //   bridge.add_OnStreamEvent?.(onServer);
-  //   // return () => bridge.remove_OnStreamEvent?.(onServer);
-  // }, []);
-
-  // useEffect(() => {
-  //   const bridge = CS?.Arken?.Bridge?.Instance;
-  //   if (!bridge) return;
-
-  //   const onWeb = (eventName: string, args: string) => {
-  //     // onUnityWebEvent(eventName, args);
-  //   };
-
-  //   bridge.add_OnWebEvent?.(onWeb);
-  //   // return () => bridge.remove_OnWebEvent?.(onWeb);
-  // }, []);
-
-  // useEffect(() => {
-  //   const { detach } = getUnityTrpc();
-  //   return () => detach?.();
-  // }, []);
-
-  // useEffect(() => {
-  //   console.log(
-  //     "[InGame][store] render",
-  //     JSON.stringify({
-  //       serverState: app.settings.serverState,
-  //       webState: app.settings.webState,
-  //       hasProfile: !!app.settings.profile,
-  //       roundId: app.settings.roundId,
-  //       reward: app.settings.reward?.rewardItemName,
-  //       timer: app.settings.serverTimerSec,
-  //     }),
-  //   );
-  // }, [gs]);
-
-  // useEffect(() => {
-  //   const cached = app.settings;
-  //   // loadPrefsJson<PersistedInGame>(
-  //   //   "sigil.ingame.cache.v1",
-  //   //   300_000,
-  //   // );
-  //   if (!app.settings) return;
-
-  //   cachedRef.current = cached;
-
-  //   app.settings = {
-  //     ingame: {
-  //       serverState: cached.serverState,
-  //       webState: cached.webState,
-  //       gameInfo: cached.gameInfo || {},
-  //       serverTimerSec:
-  //         typeof cached.serverTimerSec === "number"
-  //           ? cached.serverTimerSec
-  //           : null,
-  //       reward: cached.reward ?? null,
-  //     },
-  //   };
-
-  //   hasHydratedRef.current = true;
-  // }, []);
-
-  // useEffect(() => {
-  //   if (!app.settings.roundId) return;
-  //   if (hasHydratedRef.current) return;
-
-  //   const cached = cachedRef.current;
-  //   if (!cached) {
-  //     hasHydratedRef.current = true;
-  //     return;
-  //   }
-
-  //   if (cached.roundId !== app.settings.roundId) {
-  //     // clearPrefs("sigil.ingame.cache.v1");
-  //     app.settings = { ingame: undefined };
-  //     hasHydratedRef.current = true;
-  //     return;
-  //   }
-
-  //   setAppData({
-  //     serverState: cached.serverState,
-  //     webState: cached.webState,
-  //     gameInfo: cached.gameInfo || {},
-  //     serverTimerSec:
-  //       typeof cached.serverTimerSec === "number"
-  //         ? cached.serverTimerSec
-  //         : null,
-  //     reward: cached.reward ?? null,
-  //   });
-
-  //   hasHydratedRef.current = true;
-  // }, [app.settings.roundId]);
-
-  // useEffect(() => {
-  // if (app.settings?.gameInfo) return;
   if (!app.settings?.gameInfo)
     app.settings = {
       gameInfo: {},
     };
-  // }, []);
 
   const [displayTimerSec, setDisplayTimerSec] = useState<number | null>(null);
 
@@ -807,7 +700,7 @@ export default function ({ app }) {
               <UpgradeGrid
                 upgrades={app.settings.upgrades}
                 onUse={(upgradeId) => {
-                  setAppData({ isUpgradeOpen: false });
+                  setAppData({ isUpgradeOpen: false }); // TODO: replace
                   CS.Arken?.Bridge?.Instance?.Emit(
                     "chooseUpgrade",
                     JSON.stringify(upgradeId),

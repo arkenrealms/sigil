@@ -1,4 +1,4 @@
-// sigil/modules/core/core.router.ts
+// sigil/services/core/core.router.ts
 //
 import { z } from "zod";
 import {

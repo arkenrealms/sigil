@@ -1,9 +1,9 @@
 // sigil/ui/game/views/InGame/PartyDockContent.tsx
 import { h } from "preact";
 import { useMemo, useRef } from "preact/hooks";
-import styled from "../../../../util/styled";
-import { Text } from "../../../core/components/Text";
-import { Tab } from "../../../core/components/Tabs";
+import styled from "../../../../../util/styled";
+import { Text } from "../../../../../ui/core/components/Text";
+import { Tab } from "../../../../../ui/core/components/Tabs";
 import { ScrollViewMode, WheelEvent } from "UnityEngine/UIElements";
 import { Vector2 } from "UnityEngine";
 
@@ -59,7 +59,7 @@ function useDummyPartyMembers(): PartyMember[] {
       { name: "D", level: 1, power: 1, area: "Mage Isles", channel: "CH 1" },
       { name: "E", level: 1, power: 1, area: "Mage Isles", channel: "CH 1" },
     ],
-    []
+    [],
   );
 }
 
@@ -186,7 +186,7 @@ export function PartyDockContent() {
         const speed = 0.01;
         sv.scrollOffset = new Vector2(
           0,
-          sv.scrollOffset.y + 1000 * (evt.delta.y * speed)
+          sv.scrollOffset.y + 1000 * (evt.delta.y * speed),
         );
         evt.StopPropagation?.();
       }

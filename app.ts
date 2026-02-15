@@ -2,14 +2,14 @@
 import { initTRPC } from "@trpc/server";
 import type { RouterContext } from "./types";
 
-import * as Core from "./modules/core/core.router";
-import * as Game from "./modules/game/game.router";
+import * as Core from "./services/core/core.router";
+import * as Game from "./games/evolution-isles/services/game/game.router";
 
-import { Service as CoreService } from "./modules/core/core.service";
-import { Service as GameService } from "./modules/game/game.service";
-import { Service as NetworkService } from "./modules/network/network.service";
-import { Service as RealmService } from "./modules/realm/realm.service";
-import { Service as ShardService } from "./modules/shard/shard.service";
+import { Service as CoreService } from "./services/core/core.service";
+import { Service as NetworkService } from "./services/network/network.service";
+import { Service as RealmService } from "./services/realm/realm.service";
+import { Service as ShardService } from "./services/shard/shard.service";
+import { Service as EvolutionIslesGameService } from "./games/evolution-isles/services/game/game.service";
 
 import { createAppTrpcCaller } from "./util/trpc";
 import type { AppTrpcCaller } from "./util/trpc";
@@ -28,7 +28,7 @@ export type AppCtx = RouterContext & {
   app: {
     service: {
       core: CoreService;
-      game: GameService;
+      game: EvolutionIslesGameService;
       network: NetworkService;
       realm: RealmService;
       shard: ShardService;
@@ -81,12 +81,13 @@ export function createApp() {
   const app: any = {
     service: {
       core: new CoreService(),
-      game: new GameService(),
+      game: new EvolutionIslesGameService(),
       network: new NetworkService(),
       realm: new RealmService(),
       shard: new ShardService(),
     },
     trpc: remoteTrpc, // we’ll augment with local below
+    gameKey: undefined,
     detachTrpc: () => detach(),
     get data() {
       return getAppData();

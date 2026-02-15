@@ -1,8 +1,8 @@
 // sigil/ui/game/views/InGame/QuestDockContent.tsx
 import { h } from "preact";
 import { useMemo } from "preact/hooks";
-import styled from "../../../../util/styled";
-import { Text } from "../../../core/components/Text";
+import styled from "../../../../../util/styled";
+import { Text } from "../../../../../ui/core/components/Text";
 
 const Lines = styled.div`
   white-space: pre-line;
@@ -29,7 +29,7 @@ function useDummyQuests(): Quest[] {
       { title: "Collect 250 sprites", progress: "88 / 250" },
       { title: "Open 1 chest", progress: "0 / 1" },
     ],
-    []
+    [],
   );
 }
 
